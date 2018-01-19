@@ -188,7 +188,7 @@ public class DBPage implements Pinnable, AutoCloseable {
      * @return the page-size in bytes
      */
     public int getPageSize() {
-        return pageData.length;
+        return pageData.length - 4;
     }
 
 
