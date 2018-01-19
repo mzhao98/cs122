@@ -597,17 +597,28 @@ public class DataPage {
                 " slots, but slot " + slot + " was requested for deletion.");
         }
 
-        // TODO:  Complete this implementation.
+        // Complete this implementation.
 
-        deleteTupleDataRange(dbPage, getSlotValue(dbPage, slot), getTupleLength(dbPage, slot));
+        // delete the range and set the slot
+        deleteTupleDataRange(dbPage, getSlotValue(dbPage, slot),
+                getTupleLength(dbPage, slot));
         setSlotValue(dbPage, slot, EMPTY_SLOT);
-
-        for(int i = slot; i <= getNumSlots(dbPage); i++){
+        // logger.warn(String.format("set slot value %d", slot));
+        // get the page
+        for(int i = slot; i < getNumSlots(dbPage); i++){
             if(getSlotValue(dbPage, i) != EMPTY_SLOT){
+                logger.warn(String.format("got slot %d", slot));
                 return;
             }
         }
-        setNumSlots(dbPage, (slot - 1));
+        // logger.warn(String.format("setting num slots %d", slot-1));
+        // if no page set the slot
+        if(slot > 0)
+            setNumSlots(dbPage, (slot - 1));
+        else
+            setNumSlots(dbPage, 0);
+        // logger.warn(String.format("get num slots %d", getNumSlots(dbPage)));
+
 
     }
 }
