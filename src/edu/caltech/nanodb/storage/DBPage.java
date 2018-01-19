@@ -183,7 +183,8 @@ public class DBPage implements Pinnable, AutoCloseable {
 
 
     /**
-     * Returns the page size in bytes.
+     * Returns the page size in bytes, minus 4 bytes to make room for
+     * the linked list.
      *
      * @return the page-size in bytes
      */
