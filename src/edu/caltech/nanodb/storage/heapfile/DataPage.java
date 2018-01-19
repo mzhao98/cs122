@@ -603,11 +603,11 @@ public class DataPage {
         setSlotValue(dbPage, slot, EMPTY_SLOT);
 
         for(int i = slot; i <= getNumSlots(dbPage); i++){
-            if(getSlotValue(dbPage, i)!=EMPTY_SLOT){
+            if(getSlotValue(dbPage, i) != EMPTY_SLOT){
                 return;
             }
         }
-        setNumSlots(dbPage, (slot-1));
+        setNumSlots(dbPage, (slot - 1));
 
     }
 }

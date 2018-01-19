@@ -8,6 +8,7 @@ import edu.caltech.nanodb.relations.ColumnType;
 import edu.caltech.nanodb.relations.Schema;
 import edu.caltech.nanodb.relations.SQLDataType;
 import edu.caltech.nanodb.relations.Tuple;
+import org.apache.log4j.Logger;
 
 
 /**
@@ -47,6 +48,7 @@ public abstract class PageTuple implements Tuple {
      */
     public static final int NULL_OFFSET = 0;
 
+    private static Logger logger = Logger.getLogger(PageTuple.class);
 
     /**
      * The pin-count of this tuple.  Note that this tuple's pin-count will
@@ -104,7 +106,7 @@ public abstract class PageTuple implements Tuple {
 
         if (pageOffset < 0 || pageOffset >= dbPage.getPageSize()) {
             throw new IllegalArgumentException("pageOffset must be in range [0, " +
-                dbPage.getPageSize() + "); got " + pageOffset);
+                    dbPage.getPageSize() + "); got " + pageOffset);
         }
 
         this.dbPage = dbPage;
@@ -142,7 +144,7 @@ public abstract class PageTuple implements Tuple {
     public void unpin() {
         if (pinCount <= 0) {
             throw new IllegalStateException(
-                "pinCount is not positive (value is " + pinCount + ")");
+                    "pinCount is not positive (value is " + pinCount + ")");
         }
 
         pinCount--;
@@ -223,7 +225,7 @@ public abstract class PageTuple implements Tuple {
     private void checkColumnIndex(int colIndex) {
         if (colIndex < 0 || colIndex >= schema.numColumns()) {
             throw new IllegalArgumentException("Column index must be in " +
-                "range [0," + (schema.numColumns() - 1) + "], got " + colIndex);
+                    "range [0," + (schema.numColumns() - 1) + "], got " + colIndex);
         }
     }
 
@@ -400,46 +402,46 @@ public abstract class PageTuple implements Tuple {
             ColumnType colType = schema.getColumnInfo(colIndex).getType();
             switch (colType.getBaseType()) {
 
-            case INTEGER:
-                value = Integer.valueOf(dbPage.readInt(offset));
-                break;
+                case INTEGER:
+                    value = Integer.valueOf(dbPage.readInt(offset));
+                    break;
 
-            case SMALLINT:
-                value = Short.valueOf(dbPage.readShort(offset));
-                break;
+                case SMALLINT:
+                    value = Short.valueOf(dbPage.readShort(offset));
+                    break;
 
-            case BIGINT:
-                value = Long.valueOf(dbPage.readLong(offset));
-                break;
+                case BIGINT:
+                    value = Long.valueOf(dbPage.readLong(offset));
+                    break;
 
-            case TINYINT:
-                value = Byte.valueOf(dbPage.readByte(offset));
-                break;
+                case TINYINT:
+                    value = Byte.valueOf(dbPage.readByte(offset));
+                    break;
 
-            case FLOAT:
-                value = Float.valueOf(dbPage.readFloat(offset));
-                break;
+                case FLOAT:
+                    value = Float.valueOf(dbPage.readFloat(offset));
+                    break;
 
-            case DOUBLE:
-                value = Double.valueOf(dbPage.readDouble(offset));
-                break;
+                case DOUBLE:
+                    value = Double.valueOf(dbPage.readDouble(offset));
+                    break;
 
-            case CHAR:
-                value = dbPage.readFixedSizeString(offset, colType.getLength());
-                break;
+                case CHAR:
+                    value = dbPage.readFixedSizeString(offset, colType.getLength());
+                    break;
 
-            case VARCHAR:
-                value = dbPage.readVarString65535(offset);
-                break;
+                case VARCHAR:
+                    value = dbPage.readVarString65535(offset);
+                    break;
 
-            case FILE_POINTER:
-                value = new FilePointer(dbPage.readUnsignedShort(offset),
-                                        dbPage.readUnsignedShort(offset + 2));
-                break;
+                case FILE_POINTER:
+                    value = new FilePointer(dbPage.readUnsignedShort(offset),
+                            dbPage.readUnsignedShort(offset + 2));
+                    break;
 
-            default:
-                throw new UnsupportedOperationException(
-                    "Cannot currently store type " + colType.getBaseType());
+                default:
+                    throw new UnsupportedOperationException(
+                            "Cannot currently store type " + colType.getBaseType());
             }
         }
 
@@ -478,7 +480,7 @@ public abstract class PageTuple implements Tuple {
      * @param iCol the index of the column to set to <tt>NULL</tt>
      */
     private void setNullColumnValue(int iCol) {
-        /* TODO:  Implement!
+        /* Implement!
          *
          * The column's flag in the tuple's null-bitmap must be set to true.
          * Also, the data occupied by the column's value must be removed.
@@ -500,7 +502,38 @@ public abstract class PageTuple implements Tuple {
          * properly as well.  (Note that columns whose value is NULL will have
          * the special NULL_OFFSET constant as their offset in the tuple.)
          */
-        throw new UnsupportedOperationException("TODO:  Implement!");
+
+        // what is the valueOffsets array?
+        // how do we test it?
+        // throw new UnsupportedOperationException("d");
+
+
+        if(!isNullValue(iCol))
+        {
+            setNullFlag(iCol, true);
+
+            ColumnType type = schema.getColumnInfo(iCol).getType();
+
+            int size;
+
+            // if it's a varchar then check.. or .hasLength()
+//            if(type.getBaseType() == VARCHAR)
+//            {
+//                size = getStorageSize(type, type.getLength());
+//            }
+//            else
+//            {
+//                size = getColumnValueSize(type, valueOffsets[iCol]);
+//            }
+            size = getColumnValueSize(type, valueOffsets[iCol]);
+
+            deleteTupleDataRange(valueOffsets[iCol], size);
+
+            pageOffset -= size;
+            computeValueOffsets();
+            // shift all offsets before a certain distance
+        }
+
     }
 
 
@@ -519,7 +552,7 @@ public abstract class PageTuple implements Tuple {
         if (value == null)
             throw new IllegalArgumentException("value cannot be null");
 
-        /* TODO:  Implement!
+        /* Implement!
          *
          * This time, the column's flag in the tuple's null-bitmap must be set
          * to false (if it was true before).
@@ -545,7 +578,124 @@ public abstract class PageTuple implements Tuple {
          * Finally, once you have made space for the new column value, you can
          * write the value itself using the writeNonNullValue() method.
          */
-        throw new UnsupportedOperationException("TODO:  Implement!");
+        // throw new UnsupportedOperationException("d");
+        ColumnType type = schema.getColumnInfo(iCol).getType();
+
+        int oldSize = getColumnValueSize(type, valueOffsets[iCol]);
+        int newSize = oldSize;
+
+        // if it's a varchar then check.. or .hasLength()
+        if(type.getBaseType() == SQLDataType.VARCHAR)
+        {
+            // oldSize = getStorageSize(type, type.getLength());
+            TypeConverter t = new TypeConverter();
+            String s = t.getStringValue(value);
+            newSize = s.length() + 2;
+        }
+
+        int delta = newSize - oldSize;
+        int numCols = valueOffsets.length;
+        int offset = valueOffsets[iCol];
+
+        logger.warn(String.format("previous offset: %d", offset));
+
+        for(int k = 0; k < valueOffsets.length; k++)
+        {
+            logger.warn(String.format("OFFSET %d: %d", k, offset));
+        }
+
+        if(getNullFlag(iCol))
+        {
+            // logger.warn(String.format("is null %d, %d", numCols, iCol));
+            setNullFlag(iCol, false);
+            delta = newSize;
+
+            int i = iCol + 1;
+//            while(i < numCols)
+//            {
+//                if (!getNullFlag(i)) {
+//                    // This column is marked as being NULL.
+//                    logger.warn("end");
+//                    offset = valueOffsets[i];
+//                    logger.warn(String.format("end offset: %d", offset));
+//                    break;
+//
+//                }
+//                i++;
+//            }
+            if(true) {
+                logger.warn("begin");
+                // go backwards
+                i = iCol - 1;
+                while (i >= 0) {
+                    if (!getNullFlag(i)) {
+                        // something here doesn't work
+                        logger.warn("begin");
+                        offset = valueOffsets[i] +
+                                getColumnValueSize(schema.getColumnInfo(i).getType(),
+                                        valueOffsets[i]);
+                        logger.warn(String.format("begin offset: %d", offset));
+                        break;
+                    }
+                    i--;
+                }
+                if (i == -1) {
+                    logger.warn("start");
+                    offset = getDataStartOffset();
+                    logger.warn(String.format("start offset: %d", offset));
+                    // pageOffset -= delta;
+                }
+
+            }
+            insertTupleDataRange(offset, newSize);
+            offset -= delta;
+            logger.warn(String.format("new offset: %d", offset));
+
+        }
+
+
+        // works!
+        else if(delta != 0)
+        {
+            logger.warn("not null");
+            logger.warn(String.format("not null offset: %d, %d", offset, delta));
+            if(delta > 0)
+            {
+                insertTupleDataRange(offset, delta);
+                offset -= delta;
+            }
+            else
+            {
+                deleteTupleDataRange(offset, -delta);
+                offset -= delta;
+
+            }
+
+        }
+        pageOffset -= delta;
+//
+//        for(int k = 0; k < valueOffsets.length; k++)
+//        {
+//            logger.warn(String.format("OFFSET %d: %d", k, offset));
+//        }
+
+
+        logger.warn(String.format("final offset: %d", offset));
+        // logger.warn(String.format("data start: %d", schema.getDataStartOffset()));
+        writeNonNullValue(dbPage, offset, type, value);
+        computeValueOffsets();
+
+//
+//        int offset = valueOffsets[iCol];
+//
+//
+//
+//
+//        // write the new value
+//        writeNonNullValue(dbPage, offset, type, value);
+//
+//        computeValueOffsets();
+
     }
 
 
@@ -563,7 +713,7 @@ public abstract class PageTuple implements Tuple {
     public static int getNullFlagsSize(int numCols) {
         if (numCols < 0) {
             throw new IllegalArgumentException("numCols must be >= 0; got " +
-                numCols);
+                    numCols);
         }
 
         int nullFlagsSize = 0;
@@ -593,45 +743,45 @@ public abstract class PageTuple implements Tuple {
 
         switch (colType.getBaseType()) {
 
-        case INTEGER:
-        case FLOAT:
-            size = 4;
-            break;
+            case INTEGER:
+            case FLOAT:
+                size = 4;
+                break;
 
-        case SMALLINT:
-            size = 2;
-            break;
+            case SMALLINT:
+                size = 2;
+                break;
 
-        case BIGINT:
-        case DOUBLE:
-            size = 8;
-            break;
+            case BIGINT:
+            case DOUBLE:
+                size = 8;
+                break;
 
-        case TINYINT:
-            size = 1;
-            break;
+            case TINYINT:
+                size = 1;
+                break;
 
-        case CHAR:
-            // CHAR values are of a fixed size, but the size is specified in
-            // the length field and there is no other storage required.
-            size = colType.getLength();
-            break;
+            case CHAR:
+                // CHAR values are of a fixed size, but the size is specified in
+                // the length field and there is no other storage required.
+                size = colType.getLength();
+                break;
 
-        case VARCHAR:
-            // VARCHAR values are of a variable size, but there is always a
-            // two byte length specified at the start of the value.
-            size = 2 + dataLength;
-            break;
+            case VARCHAR:
+                // VARCHAR values are of a variable size, but there is always a
+                // two byte length specified at the start of the value.
+                size = 2 + dataLength;
+                break;
 
-        case FILE_POINTER:
-            // File-pointers are comprised of a two-byte page number and a
-            // two-byte offset in the page.
-            size = 4;
-            break;
+            case FILE_POINTER:
+                // File-pointers are comprised of a two-byte page number and a
+                // two-byte offset in the page.
+                size = 4;
+                break;
 
-        default:
-            throw new UnsupportedOperationException(
-                "Cannot currently store type " + colType.getBaseType());
+            default:
+                throw new UnsupportedOperationException(
+                        "Cannot currently store type " + colType.getBaseType());
         }
 
         return size;
@@ -660,7 +810,7 @@ public abstract class PageTuple implements Tuple {
 
         if (schema.numColumns() != tuple.getColumnCount()) {
             throw new IllegalArgumentException(
-                "Tuple has different arity than target schema.");
+                    "Tuple has different arity than target schema.");
         }
 
         int storageSize = getNullFlagsSize(schema.numColumns());
@@ -697,7 +847,7 @@ public abstract class PageTuple implements Tuple {
 
         if (schema.numColumns() != tuple.getColumnCount()) {
             throw new IllegalArgumentException(
-            "Tuple has different arity than target schema.");
+                    "Tuple has different arity than target schema.");
         }
 
         // Start writing data just past the NULL-flag bytes.
@@ -740,7 +890,7 @@ public abstract class PageTuple implements Tuple {
      * @param value the new value for the null-flag
      */
     public static void setNullFlag(DBPage dbPage, int tupleStart,
-        int colIndex, boolean value) {
+                                   int colIndex, boolean value) {
 
         //checkColumnIndex(colIndex);
 
@@ -780,7 +930,7 @@ public abstract class PageTuple implements Tuple {
      *         <tt>value</tt> is <tt>null</tt>.
      */
     public static int writeNonNullValue(DBPage dbPage, int offset,
-        ColumnType colType, Object value) {
+                                        ColumnType colType, Object value) {
         return dbPage.writeObject(offset, colType, value);
     }
 
