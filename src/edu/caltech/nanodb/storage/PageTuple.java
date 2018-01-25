@@ -503,26 +503,42 @@ public abstract class PageTuple implements Tuple {
          * the special NULL_OFFSET constant as their offset in the tuple.)
          */
 
-        // if not null
-        if(!isNullValue(iCol))
-        {
-            // set the flags
+        // what is the valueOffsets array?
+        // how do we test it?
+        // throw new UnsupportedOperationException("d");
+
+        // If the column value wasn't already NULL then we need to shrink down
+        // the tuple within the page.
+        if (!isNullValue(iCol)) {
+            // Mark the value as NULL in the NULL-flags.
             setNullFlag(iCol, true);
 
-            // get the column type and size
-            ColumnType type = schema.getColumnInfo(iCol).getType();
+            // Figure out how many bytes the current value takes, then shrink
+            // the tuple.  (The TableManager will also update other affected
+            // tuples' slots.)
 
-            int size = getColumnValueSize(type, valueOffsets[iCol]);
+            ColumnType colType = schema.getColumnInfo(iCol).getType();
+            int dataLength = 0;
+            if (colType.getBaseType() == SQLDataType.VARCHAR)
+                dataLength = dbPage.readUnsignedShort(valueOffsets[iCol]);
 
-            // delete and shift
-            deleteTupleDataRange(valueOffsets[iCol], size);
+            int valueSize = getStorageSize(colType, dataLength);
 
-            pageOffset -= size;
+            deleteTupleDataRange(valueOffsets[iCol], valueSize);
 
-            // compute the new offsets
-            computeValueOffsets();
+            // Update all affected value-offsets within this tuple.
+
+            // Where the tuple starts in the page
+            pageOffset += valueSize;
+
+            // Where various values start in the page
+            for (int jCol = 0; jCol < iCol; jCol++) {
+                if (valueOffsets[jCol] != NULL_OFFSET)
+                    valueOffsets[jCol] += valueSize;
+            }
+
+            valueOffsets[iCol] = NULL_OFFSET;
         }
-
     }
 
 
@@ -567,113 +583,92 @@ public abstract class PageTuple implements Tuple {
          * Finally, once you have made space for the new column value, you can
          * write the value itself using the writeNonNullValue() method.
          */
+        // throw new UnsupportedOperationException("d");
 
-        // was not getting any errors when testing many cases: eg null to non
-        // null, updating sizes for varchar, non null to non null, and
-        // multi column tables, however was still failing the test.
-        // not really sure why it is failing, as the offsets are working
-        // properly
 
-        ColumnType type = schema.getColumnInfo(iCol).getType();
+        ColumnType colType = schema.getColumnInfo(iCol).getType();
 
-        // get sizes
-        int oldSize = getColumnValueSize(type, valueOffsets[iCol]);
-        int newSize = oldSize;
+        int oldDataSize, newDataSize;
 
-        // if it's a varchar then check length
-        if(type.getBaseType() == SQLDataType.VARCHAR)
-        {
-            // oldSize = getStorageSize(type, type.getLength());
-            TypeConverter t = new TypeConverter();
-            String s = t.getStringValue(value);
-            newSize = s.length() + 2;
-        }
+        // This will be the offset of where to store the new non-null value.
+        // However, if the current value is NULL then offset will be set to
+        // NULL_OFFSET, so we need to compute the actual offset for the column
+        // value to be stored at.
 
-        // get the change in size, and offset
-        int delta = newSize - oldSize;
-        int numCols = valueOffsets.length;
         int offset = valueOffsets[iCol];
-
-        // logger.warn(String.format("previous offset: %d", offset));
-
-        // debug to print offsets
-        // for(int k = 0; k < valueOffsets.length; k++)
-        // {
-        //     logger.warn(String.format("OFFSET %d: %d", k, offset));
-        // }
-
-        // going from null to non null
-        if(getNullFlag(iCol))
-        {
-            // logger.warn(String.format("is null %d, %d", numCols, iCol));
-            // set the new flag and update delta
+        if (offset == NULL_OFFSET) {
+            // The old value was NULL.  Mark that the new value is not!
             setNullFlag(iCol, false);
-            delta = newSize;
 
-            // int i = iCol + 1;
+            // Find the last column before this one that is not currently NULL.
+            // That column's offset, PLUS its size, will give us the offset of
+            // this column.  (We could also look for the next non-NULL column,
+            // but there may be no more non-NULL columns in the tuple, and we
+            // wouldn't have an easy way of determining the proper offset.)
 
-            logger.warn("begin");
-            // go backwards and look for an open slot
-            int i = iCol - 1;
-            while (i >= 0) {
-                if (!getNullFlag(i)) {
-                    // something here doesn't work
-                    // logger.warn("begin");
-                    offset = valueOffsets[i] +
-                       getColumnValueSize(schema.getColumnInfo(i).getType(),
-                                    valueOffsets[i]);
-                    // logger.warn(String.format("begin offset: %d", offset));
-                    break;
-                }
-                i--;
-            }
-            // if we get to the beginning
-            if (i == -1) {
-                // logger.warn("start");
+            int prevCol = iCol - 1;
+            while (prevCol >= 0 && valueOffsets[prevCol] == NULL_OFFSET)
+                prevCol--;
+
+            if (prevCol < 0) {
+                // This value will be added to the front of the tuple's data!
                 offset = getDataStartOffset();
-                // logger.warn(String.format("start offset: %d", offset));
-                // pageOffset -= delta;
+            }
+            else {
+                // This value will be added after the previous non-NULL value
+                // that we just found.
+                int prevOffset = valueOffsets[prevCol];
+                ColumnType prevType = schema.getColumnInfo(prevCol).getType();
+                offset = prevOffset + getColumnValueSize(prevType, prevOffset);
             }
 
-            // insert a new size, and shift the offset
-            insertTupleDataRange(offset, newSize);
-            offset -= delta;
-            logger.warn(String.format("new offset: %d", offset));
-
+            oldDataSize = 0;
+        }
+        else {
+            oldDataSize = getColumnValueSize(colType, offset);
         }
 
-        // if the size has changed(varchar case)
-        else if(delta != 0)
-        {
-            // logger.warn("not null");
-            // logger.warn(String.format("not null offset: %d, %d", offset, d));
-            // if we have a bigger size
-            if(delta > 0)
-            {
-                // insert and shift
-                insertTupleDataRange(offset, delta);
-                offset -= delta;
-            }
-            // if we have a smaller size
+        // Next, make sure there is space for the new value.  If the column
+        // being written is a variable-size column, we may need to increase or
+        // decrease the size of the tuple to make room.
+
+        // VARCHAR is special - the storage size depends on the size of the
+        // data value being stored.
+        int newDataLength = 0;
+        if (colType.getBaseType() == SQLDataType.VARCHAR) {
+            String strValue = TypeConverter.getStringValue(value);
+            newDataLength = strValue.length();
+        }
+        newDataSize = getStorageSize(colType, newDataLength);
+
+        int diff = newDataSize - oldDataSize;
+        if (diff != 0) {
+            // The column-value's size is changing, so we need to update
+            // bookkeeping values.
+
+            if (diff > 0)
+                insertTupleDataRange(offset, diff);
             else
-            {
-                // insert and shift
-                deleteTupleDataRange(offset, -delta);
-                offset -= delta;
+                deleteTupleDataRange(offset, -diff);
+
+            // Update all affected offsets within this tuple.
+
+            // Where the column-value itself starts
+            offset -= diff;
+            valueOffsets[iCol] = offset;
+
+            // Where the tuple starts in the page
+            pageOffset -= diff;
+
+            // Where various values start in the page
+            for (int jCol = 0; jCol < iCol; jCol++) {
+                if (valueOffsets[jCol] != NULL_OFFSET)
+                    valueOffsets[jCol] -= diff;
             }
-
         }
-        // update the page offset
-        pageOffset -= delta;
 
-        // logger.warn(String.format("final offset: %d", offset));
-        // logger.warn(String.format("data start: %d",
-        // schema.getDataStartOffset()));
-
-        // now write the data and compute
-        writeNonNullValue(dbPage, offset, type, value);
-        computeValueOffsets();
-
+        // Finally, write the value to the column!
+        writeNonNullValue(dbPage, offset, colType, value);
     }
 
 

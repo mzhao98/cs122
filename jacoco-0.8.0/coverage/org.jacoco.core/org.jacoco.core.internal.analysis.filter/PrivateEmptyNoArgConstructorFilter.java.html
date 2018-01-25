@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>PrivateEmptyNoArgConstructorFilter.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">JaCoCo</a> &gt; <a href="../index.html" class="el_bundle">org.jacoco.core</a> &gt; <a href="index.source.html" class="el_package">org.jacoco.core.internal.analysis.filter</a> &gt; <span class="el_source">PrivateEmptyNoArgConstructorFilter.java</span></div><h1>PrivateEmptyNoArgConstructorFilter.java</h1><pre class="source lang-java linenums">/*******************************************************************************
+ * Copyright (c) 2009, 2018 Mountainminds GmbH &amp; Co. KG and Contributors
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v10.html
+ *
+ * Contributors:
+ *    Evgeny Mandrikov - initial API and implementation
+ *
+ *******************************************************************************/
+package org.jacoco.core.internal.analysis.filter;
+
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.tree.MethodInsnNode;
+import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.VarInsnNode;
+
+/**
+ * Filters private empty constructors that do not have arguments.
+ */
+<span class="fc" id="L22">public final class PrivateEmptyNoArgConstructorFilter implements IFilter {</span>
+
+	public void filter(final String className, final String superClassName,
+			final MethodNode methodNode, final IFilterOutput output) {
+<span class="fc bfc" id="L26" title="All 8 branches covered.">		if ((methodNode.access &amp; Opcodes.ACC_PRIVATE) != 0</span>
+				&amp;&amp; &quot;&lt;init&gt;&quot;.equals(methodNode.name)
+				&amp;&amp; &quot;()V&quot;.equals(methodNode.desc)
+				&amp;&amp; new Matcher().match(methodNode, superClassName)) {
+<span class="fc" id="L30">			output.ignore(methodNode.instructions.getFirst(),</span>
+					methodNode.instructions.getLast());
+		}
+<span class="fc" id="L33">	}</span>
+
+<span class="fc" id="L35">	private static class Matcher extends AbstractMatcher {</span>
+		private boolean match(final MethodNode methodNode,
+				final String superClassName) {
+<span class="fc" id="L38">			cursor = methodNode.instructions.getFirst();</span>
+<span class="fc" id="L39">			skipNonOpcodes();</span>
+<span class="pc bpc" id="L40" title="2 of 4 branches missed.">			if (cursor.getOpcode() != Opcodes.ALOAD</span>
+					|| ((VarInsnNode) cursor).var != 0) {
+<span class="nc" id="L42">				return false;</span>
+			}
+<span class="fc" id="L44">			nextIs(Opcodes.INVOKESPECIAL);</span>
+<span class="fc" id="L45">			MethodInsnNode m = (MethodInsnNode) cursor;</span>
+<span class="pc bpc" id="L46" title="3 of 8 branches missed.">			if (m != null &amp;&amp; superClassName.equals(m.owner)</span>
+					&amp;&amp; &quot;&lt;init&gt;&quot;.equals(m.name) &amp;&amp; (&quot;()V&quot;).equals(m.desc)) {
+<span class="fc" id="L48">				nextIs(Opcodes.RETURN);</span>
+<span class="fc bfc" id="L49" title="All 2 branches covered.">				return cursor != null;</span>
+			}
+<span class="fc" id="L51">			return false;</span>
+		}
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.0.201801022044</span>Code Coverage Report for JaCoCo 0.8.0</div></body></html>
