@@ -13,6 +13,7 @@ import edu.caltech.nanodb.queryeval.PlanCost;
 import edu.caltech.nanodb.queryeval.SelectivityEstimator;
 import edu.caltech.nanodb.relations.JoinType;
 import edu.caltech.nanodb.relations.Tuple;
+import edu.caltech.nanodb.expressions.TupleLiteral;
 
 import java.util.ArrayList;
 
@@ -36,11 +37,28 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
     /** Set to true when we have exhausted all tuples from our subplans. */
     private boolean done;
 
+    /** Set to true when we have a match for left or right joins */
+    private boolean matched;
+
+    /** Set to true when we have null joined a tuple in a left join */
+    private boolean nullJoined;
+
+    /** Tuple literal of all nulls to join for left joins */
+    private TupleLiteral allNulls;
+
 
     public NestedLoopJoinNode(PlanNode leftChild, PlanNode rightChild,
                 JoinType joinType, Expression predicate) {
 
         super(leftChild, rightChild, joinType, predicate);
+
+        if (joinType == JoinType.RIGHT_OUTER && !isSwapped()){
+            swap();
+        }
+
+        this.matched = false;
+
+        this.nullJoined = false;
     }
 
 
@@ -154,6 +172,8 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
         leftChild.prepare();
         rightChild.prepare();
 
+        allNulls = new TupleLiteral(rightChild.getSchema().numColumns());
+
         // Use the parent class' helper-function to prepare the schema.
         prepareSchemaStats();
 
@@ -183,10 +203,15 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
             return null;
 
         while (getTuplesToJoin()) {
-            if (canJoinTuples())
+            if (canJoinTuples() || rightTuple == allNulls) {
+                if (leftTuple == null && rightTuple == null) {
+                    done = true;
+                    break;
+                }
+                matched = true;
                 return joinTuples(leftTuple, rightTuple);
+            }
         }
-
         return null;
     }
 
@@ -199,7 +224,67 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
      *         {@code false} if no more pairs of tuples are available to join.
      */
     private boolean getTuplesToJoin() throws IOException {
-        // TODO:  Implement
+        // Case for inner joins
+        if (joinType == JoinType.INNER){
+            if (leftTuple == null && rightTuple == null){
+                leftTuple = leftChild.getNextTuple();
+                rightTuple = rightChild.getNextTuple();
+                return true;
+            }
+
+            else if (leftTuple != null && rightTuple != null){
+                rightTuple = rightChild.getNextTuple();
+                return true;
+            }
+
+            else if(leftTuple != null && rightTuple == null) {
+                leftTuple = leftChild.getNextTuple();
+                rightChild.initialize();
+                rightTuple = rightChild.getNextTuple();
+                if (leftTuple == null) {
+                    done = true;
+                    return false;
+                }
+                return true;
+            }
+            done = true;
+            return false;
+        }
+
+        // Case for outer joins
+        else if (joinType == JoinType.RIGHT_OUTER || joinType == JoinType.LEFT_OUTER) {
+            if (leftTuple == null && rightTuple == null){
+                leftTuple = leftChild.getNextTuple();
+                rightTuple = rightChild.getNextTuple();
+                return true;
+            }
+
+            if (leftTuple != null && rightTuple != null){
+                rightTuple = rightChild.getNextTuple();
+                return true;
+            }
+
+            else if(leftTuple != null && rightTuple == null && !nullJoined && !matched) {
+                nullJoined = true;
+                rightTuple = allNulls;
+                return true;
+            }
+
+            else if(nullJoined) {
+                leftTuple = leftChild.getNextTuple();
+                rightChild.initialize();
+                rightTuple = rightChild.getNextTuple();
+                matched = false;
+                if (leftTuple == null) {
+                    done = true;
+                    return false;
+                }
+                nullJoined = false;
+                return true;
+            }
+            done = true;
+            return false;
+        }
         return false;
     }
 
