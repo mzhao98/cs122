@@ -4,6 +4,7 @@ package edu.caltech.nanodb.queryeval;
 import java.io.IOException;
 import java.util.List;
 
+import edu.caltech.nanodb.plannodes.*;
 import org.apache.log4j.Logger;
 
 import edu.caltech.nanodb.queryast.FromClause;
@@ -11,11 +12,6 @@ import edu.caltech.nanodb.queryast.SelectClause;
 
 import edu.caltech.nanodb.expressions.Expression;
 
-import edu.caltech.nanodb.plannodes.FileScanNode;
-import edu.caltech.nanodb.plannodes.PlanNode;
-import edu.caltech.nanodb.plannodes.SelectNode;
-
-import edu.caltech.nanodb.plannodes.SimpleFilterNode;
 import edu.caltech.nanodb.relations.TableInfo;
 
 
@@ -53,22 +49,117 @@ public class SimplePlanner extends AbstractPlannerImpl {
 
         if (enclosingSelects != null && !enclosingSelects.isEmpty()) {
             throw new UnsupportedOperationException(
-                "Not implemented:  enclosing queries");
+                    "Not implemented:  enclosing queries");
         }
+
+        // from clause
+        // (joins)
+        // where (filter)
+        //  group by hashed group aggregate
+        //  having
+        //  order by
+        // select (project)
+
+        FromClause fromClause = selClause.getFromClause();
+        PlanNode plan;
+        // if from exists
+        // either get the tables and join on a where (filter)
+        if (fromClause.isBaseTable()) {
+            // look through all the tuples
+
+            // just call makeSimpleSelect
+            plan = makeSimpleSelect(fromClause.getTableName(),
+                    selClause.getWhereExpr(), null);
+            logger.warn("is base table");
+
+        }
+
+        else if (fromClause.isDerivedTable()) {
+            // call recursively
+            logger.warn("derived");
+            PlanNode childNode = makePlan(fromClause.getSelectClause(),
+                    enclosingSelects);
+            plan = new SimpleFilterNode(childNode, selClause.getWhereExpr());
+            
+            plan.initialize();
+        }
+
+        // join expression
+        else {
+            plan = computeJoinClauses(fromClause, enclosingSelects);
+        }
+
+
+//        if (selClause.getWhereExpr() != null) {
+//            logger.warn("get where table");
+//            PlanNode oldPlan = plan;
+//            plan = new SimpleFilterNode(oldPlan, selClause.getWhereExpr());
+//            logger.warn("end where table");
+//
+//        }
 
         if (!selClause.isTrivialProject()) {
             throw new UnsupportedOperationException(
-                "Not implemented:  project");
+                    "Not implemented:  project");
+            // ProjectNode projectNode = new ProjectNode(selClause.getSelectValues());
+            // curPlan = projectNode; // the project will store all the children
+
         }
 
-        FromClause fromClause = selClause.getFromClause();
-        if (!fromClause.isBaseTable()) {
-            throw new UnsupportedOperationException(
-                "Not implemented:  joins or subqueries in FROM clause");
+
+//        if (!fromClause.isBaseTable()) {
+//            throw new UnsupportedOperationException(
+//                    "Not implemented:  joins or subqueries in FROM clause");
+//
+//
+//        }
+        logger.warn(String.format("return %s", plan.toString()));
+        return plan;
+        // return makeSimpleSelect(fromClause.getTableName(), selClause.getWhereExpr(), null);
+    }
+
+
+    public PlanNode computeJoinClauses(FromClause fromClause, List<SelectClause> enclosingSelects)
+            throws IOException {
+
+        PlanNode right;
+        PlanNode left;
+
+        if(fromClause.getLeftChild().isJoinExpr()) {
+            left = computeJoinClauses(fromClause.getLeftChild(), enclosingSelects);
+        }
+        else if(fromClause.getLeftChild().isDerivedTable()) {
+            left = makePlan(fromClause.getRightChild().getSelectClause(), enclosingSelects);
         }
 
-        return makeSimpleSelect(fromClause.getTableName(),
-            selClause.getWhereExpr(), null);
+        // base table
+        else {
+            TableInfo tableInfo = storageManager.getTableManager().openTable(fromClause.getLeftChild().getTableName());
+            left = new FileScanNode(tableInfo, null);
+        }
+
+        if(fromClause.getRightChild().isJoinExpr()) {
+            right = computeJoinClauses(fromClause.getRightChild(), enclosingSelects);
+        }
+
+        else if(fromClause.getRightChild().isDerivedTable()) {
+            right = makePlan(fromClause.getRightChild().getSelectClause(), enclosingSelects);
+        }
+
+        // base table
+        else {
+            // set right to something
+            TableInfo tableInfo = storageManager.getTableManager().openTable(fromClause.getRightChild().getTableName());
+            right = new FileScanNode(tableInfo, null);
+        }
+
+
+        // check the join conditions
+        NestedLoopJoinNode joinNode = new NestedLoopJoinNode(left, right,
+                fromClause.getJoinType(), fromClause.getOnExpression());
+        joinNode.prepare();
+        return joinNode;
+
     }
 
 
