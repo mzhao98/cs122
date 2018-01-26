@@ -232,7 +232,7 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
                 }
 //                System.out.println(leftTuple);
 //                System.out.println(rightTuple);
-                System.out.println(joinTuples(leftTuple, rightTuple));
+//                System.out.println(joinTuples(leftTuple, rightTuple));
                 return joinTuples(leftTuple, rightTuple);
             }
         }
