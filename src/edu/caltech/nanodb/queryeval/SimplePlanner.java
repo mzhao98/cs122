@@ -75,6 +75,8 @@ public class SimplePlanner extends AbstractPlannerImpl {
         }
 
 
+
+
         // from clause
         // (joins)
         // where (filter)
@@ -96,18 +98,21 @@ public class SimplePlanner extends AbstractPlannerImpl {
         {
             // this is the case where we need to rename the table, since no table
             logger.warn(String.format("no from %s", selClause.toString()));
-            String tableName = fromClause.getTableName();
-            selClause.getSelectValues();
+//            String tableName = fromClause.getTableName();
+//            selClause.getSelectValues();
 
 
             // do we create a table
             // TableInfo tableInfo = storageManager.getTableManager().createTable("name");
 
             // using a schema
-            ProjectNode pNode = new ProjectNode(selClause.getSelectValues());
-            pNode.prepare();
+            ProjectNode projectNode = new ProjectNode(selClause.getSelectValues());
+            logger.warn(String.format("clasue %s", selClause.getSelectValues().toString()));
+            logger.warn(String.format("project %s", projectNode.toString()));
 
-            return pNode;
+            projectNode.prepare();
+
+            return projectNode;
 
             // do we have to parse the values, if so, how do we do it
             // do we loop through the string
@@ -178,6 +183,15 @@ public class SimplePlanner extends AbstractPlannerImpl {
 
         }
 
+
+        // this should go last
+        if(selClause.getOrderByExprs().size() > 0)
+        {
+            logger.warn("order by");
+            PlanNode sNode = plan;
+            plan = new SortNode(sNode, selClause.getOrderByExprs());
+            plan.prepare();
+        }
 
 
 //        if (!fromClause.isBaseTable()) {
