@@ -202,8 +202,8 @@ public class SimplePlanner extends AbstractPlannerImpl {
             // set right to something
             TableInfo tableInfo = storageManager.getTableManager().openTable(fromClause.getRightChild().getTableName());
             // PlanNode temp;
-            // temp = new FileScanNode(tableInfo, null);
-            temp = new RenameNode(temp, fromClause.getRightChild().getResultName());
+            temp = new FileScanNode(tableInfo, null);
+            // temp = new RenameNode(temp, fromClause.getRightChild().getResultName());
         }
 
         right = new RenameNode(temp, fromClause.getRightChild().getResultName());
