@@ -206,7 +206,7 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
             if (canJoinTuples() || rightTuple == allNulls) {
                 if (leftTuple == null && rightTuple == null) {
                     done = true;
-                    break;
+                    return null;
                 }
                 matched = true;
                 return joinTuples(leftTuple, rightTuple);
