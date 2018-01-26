@@ -37,13 +37,13 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
     /** Set to true when we have exhausted all tuples from our subplans. */
     private boolean done;
 
-    /** Set to true when we have a match for left or right joins */
+    /** Set to true when we have a match for left or right joins. */
     private boolean matched;
 
-    /** Set to true when we have null joined a tuple in a left join */
+    /** Set to true when we have null joined a tuple in a left join. */
     private boolean nullJoined;
 
-    /** Tuple literal of all nulls to join for left joins */
+    /** Tuple literal of all nulls to join for left joins. */
     private TupleLiteral allNulls;
 
 
@@ -52,6 +52,8 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
 
         super(leftChild, rightChild, joinType, predicate);
 
+        // We can treat a right outer join like a left outer join with a swap
+        // when it is time to project.
         if (joinType == JoinType.RIGHT_OUTER && !isSwapped()){
             swap();
         }
@@ -172,6 +174,9 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
         leftChild.prepare();
         rightChild.prepare();
 
+        // Once the children are prepared we can create a TupleLiteral
+        // for joining a left tuple with a properly null-padded tuple
+        // in the case of an outer join which finds no tuples to match
         allNulls = new TupleLiteral(rightChild.getSchema().numColumns());
 
         // Use the parent class' helper-function to prepare the schema.
@@ -199,40 +204,25 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
      * @throws IOException if a db file failed to open at some point
      */
     public Tuple getNextTuple() throws IOException {
-//        logger.warn("getNextTuple");
         if (done)
             return null;
 
         while (getTuplesToJoin()) {
+            // If we can join the tuples or if the right tuple is the null
+            // padded tuple from an outer join we proceed
             if (canJoinTuples() || rightTuple == allNulls) {
-//                logger.warn("Found tuples");
-//                if (joinType != JoinType.INNER) {
-//                    logger.warn("matched: " + matched + " nullJoined: " + nullJoined);
-//                }
-//                String lt = String.format("");
-//                String rt = String.format("");
-//                if (leftTuple != null) {
-//                    for (int i = 0; i < leftTuple.getColumnCount(); i++) {
-//                        lt += String.format("%s", leftTuple.getColumnValue(i).toString());
-//                    }
-//                }
-//                if (rightTuple != null && rightTuple != allNulls) {
-//                    for (int i = 0; i < rightTuple.getColumnCount(); i++) {
-//                        rt += String.format("%s", rightTuple.getColumnValue(i).toString());
-//                    }
-//                }
-//                logger.warn(lt);
-//                logger.warn(rt);
                 if (leftTuple == null && rightTuple == null) {
                     done = true;
                     return null;
                 }
+
+                // In the case of an outer join if we have found a match
+                // then set matched to true so we do not null-join the
+                // current left tuple
                 if (rightTuple != allNulls) {
                     matched = true;
                 }
-//                System.out.println(leftTuple);
-//                System.out.println(rightTuple);
-//                System.out.println(joinTuples(leftTuple, rightTuple));
+
                 return joinTuples(leftTuple, rightTuple);
             }
         }
@@ -242,31 +232,18 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
 
     /**
      * This helper function implements the logic that sets {@link #leftTuple}
-     * and {@link #rightTuple} based on the nested-loop logic.
+     * and {@link #rightTuple} based on the nested-loop logic. There are two
+     * cases, one with simpler logic for an inner join and another for an
+     * outer join.
      *
      * @return {@code true} if another pair of tuples was found to join, or
      *         {@code false} if no more pairs of tuples are available to join.
      */
     private boolean getTuplesToJoin() throws IOException {
-//        logger.warn("getTuplesToJoin");
-//        String lt = String.format("");
-//        String rt = String.format("");
-//        if (leftTuple != null) {
-//            for (int i = 0; i < leftTuple.getColumnCount(); i++) {
-//                lt += String.format("%s", leftTuple.getColumnValue(i).toString());
-//            }
-//        }
-//        if (rightTuple != null && rightTuple != allNulls) {
-//            for (int i = 0; i < rightTuple.getColumnCount(); i++) {
-//                rt += String.format("%s", rightTuple.getColumnValue(i).toString());
-//            }
-//        }
-//        logger.warn(lt);
-//        logger.warn(rt);
 
-        // Case for inner joins
         if (joinType == JoinType.INNER){
-//            logger.warn("Inner");
+            // If both tuples are null then we initialize and if both tables
+            // are not empty then we return true.
             if (leftTuple == null && rightTuple == null){
                 logger.warn("Initialize");
                 leftTuple = leftChild.getNextTuple();
@@ -276,28 +253,18 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
                 }
             }
 
+            // If both tuples are not null then we advance the right tuple
+            // and if the right tuple is null then we have reached the end
+            // of the right table so we advance the left tuple and reset
+            // the right tuple. If the left tuple is now null then we are
+            // done
             else if (leftTuple != null && rightTuple != null){
-//                logger.warn("Advance");
                 rightTuple = rightChild.getNextTuple();
                 if (rightTuple == null) {
-//                    logger.warn("Reset");
                     leftTuple = leftChild.getNextTuple();
                     rightChild.initialize();
                     rightTuple = rightChild.getNextTuple();
-//                    lt = String.format("");
-//                    rt = String.format("");
-//                    if (leftTuple != null) {
-//                        for (int i = 0; i < leftTuple.getColumnCount(); i++) {
-//                            lt += String.format("%s", leftTuple.getColumnValue(i).toString());
-//                        }
-//                    }
-//                    if (rightTuple != null) {
-//                        for (int i = 0; i < rightTuple.getColumnCount(); i++) {
-//                            rt += String.format("%s", rightTuple.getColumnValue(i).toString());
-//                        }
-//                    }
-//                    logger.warn(lt);
-//                    logger.warn(rt);
+
                     if (leftTuple == null) {
                         done = true;
                         return false;
@@ -307,46 +274,23 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
                 return true;
             }
 
-//            else if(leftTuple != null && rightTuple == null) {
-//                logger.warn("Reset");
-//                leftTuple = leftChild.getNextTuple();
-//                rightChild.initialize();
-//                rightTuple = rightChild.getNextTuple();
-//                if (leftTuple == null) {
-//                    done = true;
-//                    return false;
-//                }
-//                return true;
-//            }
             done = true;
             return false;
         }
 
         // Case for outer joins
-        else if (joinType == JoinType.RIGHT_OUTER || joinType == JoinType.LEFT_OUTER) {
-//            logger.warn("outer");
-//            logger.warn("matched: " + matched + " nullJoined: " + nullJoined);
+        else if (joinType == JoinType.RIGHT_OUTER ||
+                joinType == JoinType.LEFT_OUTER) {
 
+            // If we have null joined the left tuple then advance the left
+            // tuple and reset the right tuple and the matched and nulljoined
+            // tuples. If the left tuple is null then we are done, if the
+            // right tuple is null then we nulljoin it with the current
+            // left tuple.
             if(nullJoined) {
-//                logger.warn("Already NJ");
                 leftTuple = leftChild.getNextTuple();
                 rightChild.initialize();
                 rightTuple = rightChild.getNextTuple();
-//
-//                lt = String.format("");
-//                rt = String.format("");
-//                if (leftTuple != null) {
-//                    for (int i = 0; i < leftTuple.getColumnCount(); i++) {
-//                        lt += String.format("%s", leftTuple.getColumnValue(i).toString());
-//                    }
-//                }
-//                if (rightTuple != null && rightTuple != allNulls) {
-//                    for (int i = 0; i < rightTuple.getColumnCount(); i++) {
-//                        rt += String.format("%s", rightTuple.getColumnValue(i).toString());
-//                    }
-//                }
-//                logger.warn(lt);
-//                logger.warn(rt);
 
                 matched = false;
                 if (leftTuple == null) {
@@ -364,8 +308,10 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
                 return true;
             }
 
+            // If both tuples are null then initialize both tuples, if
+            // the left tuple is null we are done, if the right tuple
+            // is null then nulljoin it with the left tuple
             if (leftTuple == null && rightTuple == null){
-//                logger.warn("Init");
                 leftTuple = leftChild.getNextTuple();
                 rightTuple = rightChild.getNextTuple();
                 if (leftTuple == null) {
@@ -373,18 +319,22 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
                     return false;
                 }
                 if (rightTuple == null) {
-//                    logger.warn("Nulljoin");
                     nullJoined = true;
                     rightTuple = allNulls;
                     return true;
                 }
             }
 
+            // If the both tuples are not null then advance the right tuple
+            // if the right tuple is null and we have not found a match
+            // for the current left tuple then nulljoin the two. If we
+            // have found a match but the right tuple is null then we
+            // advance the left tuple, reset the right tuple,
+            // matched and nulljoined, and perform the same checks as
+            // when we initialized the tuples.
             if (leftTuple != null && rightTuple != null){
-//                logger.warn("Advance");
                 rightTuple = rightChild.getNextTuple();
                 if (rightTuple == null && !nullJoined && !matched) {
-//                    logger.warn("Nulljoin");
                     nullJoined = true;
                     rightTuple = allNulls;
                     return true;

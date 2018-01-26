@@ -10,8 +10,8 @@ import edu.caltech.nanodb.server.NanoDBServer;
 
 /**
  * This class exercises the database with some simple <tt>JOIN</tt>
- * statements against a single table, to see if simple selects and
- * predicates work properly.
+ * statements using 4 tables, to see if simple inner joins, left outer
+ * joins and right outer joins work properly.
  */
 @Test
 public class TestSimpleJoins extends SqlTestCase {
@@ -22,8 +22,8 @@ public class TestSimpleJoins extends SqlTestCase {
 
 
     /**
-     * This test performs a simple <tt>JOIN</tt> statement with no predicate,
-     * to see if the query produces the expected results.
+     * This test performs a simple <tt>JOIN</tt> statement where the table on
+     * the left is empty to see if the query produces the expected results.
      *
      * @throws Exception if any query parsing or execution issues occur.
      */
@@ -36,6 +36,12 @@ public class TestSimpleJoins extends SqlTestCase {
         assert checkUnorderedResults(expected, result);
     }
 
+    /**
+     * This test performs a simple <tt>JOIN</tt> statement where the table on
+     * the right is empty to see if the query produces the expected results.
+     *
+     * @throws Exception if any query parsing or execution issues occur.
+     */
     public void testInnerJoinNE() throws Throwable {
         TupleLiteral[] expected = {
         };
@@ -45,6 +51,12 @@ public class TestSimpleJoins extends SqlTestCase {
         assert checkUnorderedResults(expected, result);
     }
 
+    /**
+     * This test performs a simple <tt>JOIN</tt> statement where both tables
+     * are empty to see if the query produces the expected results.
+     *
+     * @throws Exception if any query parsing or execution issues occur.
+     */
     public void testInnerJoinEE() throws Throwable {
         TupleLiteral[] expected = {
         };
@@ -54,6 +66,13 @@ public class TestSimpleJoins extends SqlTestCase {
         assert checkUnorderedResults(expected, result);
     }
 
+    /**
+     * This test performs a simple <tt>JOIN</tt> statement where the table on
+     * the left has multiple tuples which can join with a tuple from the table
+     * on the right to see if the query produces the expected results.
+     *
+     * @throws Exception if any query parsing or execution issues occur.
+     */
     public void testInnerJoinM1() throws Throwable {
         TupleLiteral[] expected = {
                 new TupleLiteral(1, 2, 3, 2, 3, 1),
@@ -72,6 +91,13 @@ public class TestSimpleJoins extends SqlTestCase {
         assert checkUnorderedResults(expected, result);
     }
 
+    /**
+     * This test performs a simple <tt>JOIN</tt> statement where the table on
+     * the right has multiple tuples which can join with a tuple from the table
+     * on the left to see if the query produces the expected results.
+     *
+     * @throws Exception if any query parsing or execution issues occur.
+     */
     public void testInnerJoin1M() throws Throwable {
         TupleLiteral[] expected = {
                 new TupleLiteral(2, 3, 1, 1, 2, 3),
@@ -91,9 +117,16 @@ public class TestSimpleJoins extends SqlTestCase {
     }
 
 
-    
-    
 
+
+
+    /**
+     * This test performs a simple <tt>LEFT OUTER JOIN</tt> statement where
+     * the table on the left is empty to see if the query produces the
+     * expected results.
+     *
+     * @throws Exception if any query parsing or execution issues occur.
+     */
     public void testLeftOuterJoinEN() throws Throwable {
         TupleLiteral[] expected = {
         };
@@ -103,6 +136,13 @@ public class TestSimpleJoins extends SqlTestCase {
         assert checkUnorderedResults(expected, result);
     }
 
+    /**
+     * This test performs a simple <tt>LEFT OUTER JOIN</tt> statement where
+     * the table on the right is empty to see if the query produces the
+     * expected results.
+     *
+     * @throws Exception if any query parsing or execution issues occur.
+     */
     public void testLeftOuterJoinNE() throws Throwable {
         TupleLiteral[] expected = {
                 new TupleLiteral(2, 3, 1, null, null, null),
@@ -115,6 +155,13 @@ public class TestSimpleJoins extends SqlTestCase {
         assert checkUnorderedResults(expected, result);
     }
 
+    /**
+     * This test performs a simple <tt>LEFT OUTER JOIN</tt> statement where
+     * both tables are empty to see if the query produces the
+     * expected results.
+     *
+     * @throws Exception if any query parsing or execution issues occur.
+     */
     public void testLeftOuterJoinEE() throws Throwable {
         TupleLiteral[] expected = {
         };
@@ -124,6 +171,14 @@ public class TestSimpleJoins extends SqlTestCase {
         assert checkUnorderedResults(expected, result);
     }
 
+    /**
+     * This test performs a simple <tt>LEFT OUTER JOIN</tt> statement where
+     * the table on the left has multiple tuples which can join with a
+     * tuple from the table on the right to see if the query produces
+     * the expected results.
+     *
+     * @throws Exception if any query parsing or execution issues occur.
+     */
     public void testLeftOuterJoinM1() throws Throwable {
         TupleLiteral[] expected = {
                 new TupleLiteral(1, 2, 3, null, null, null),
@@ -137,6 +192,14 @@ public class TestSimpleJoins extends SqlTestCase {
         assert checkUnorderedResults(expected, result);
     }
 
+    /**
+     * This test performs a simple <tt>LEFT OUTER JOIN</tt> statement where
+     * the table on the right has multiple tuples which can join with a
+     * tuple from the table on the left to see if the query produces
+     * the expected results.
+     *
+     * @throws Exception if any query parsing or execution issues occur.
+     */
     public void testLeftOuterJoin1M() throws Throwable {
         TupleLiteral[] expected = {
                 new TupleLiteral(2, 3, 1, 2, 2, 3),
@@ -156,6 +219,13 @@ public class TestSimpleJoins extends SqlTestCase {
 
 
 
+    /**
+     * This test performs a simple <tt>RIGHT OUTER JOIN</tt> statement where
+     * the table on the left is empty to see if the query produces the
+     * expected results.
+     *
+     * @throws Exception if any query parsing or execution issues occur.
+     */
     public void testRightOuterJoinEN() throws Throwable {
         TupleLiteral[] expected = {
                 new TupleLiteral(null, null, 1, 2, 3),
@@ -168,6 +238,13 @@ public class TestSimpleJoins extends SqlTestCase {
         assert checkUnorderedResults(expected, result);
     }
 
+    /**
+     * This test performs a simple <tt>RIGHT OUTER JOIN</tt> statement where
+     * the table on the right is empty to see if the query produces the
+     * expected results.
+     *
+     * @throws Exception if any query parsing or execution issues occur.
+     */
     public void testRightOuterJoinNE() throws Throwable {
         TupleLiteral[] expected = {
         };
@@ -177,6 +254,13 @@ public class TestSimpleJoins extends SqlTestCase {
         assert checkUnorderedResults(expected, result);
     }
 
+    /**
+     * This test performs a simple <tt>RIGHT OUTER JOIN</tt> statement where
+     * both tables are empty to see if the query produces the
+     * expected results.
+     *
+     * @throws Exception if any query parsing or execution issues occur.
+     */
     public void testRightOuterJoinEE() throws Throwable {
         TupleLiteral[] expected = {
         };
@@ -186,6 +270,14 @@ public class TestSimpleJoins extends SqlTestCase {
         assert checkUnorderedResults(expected, result);
     }
 
+    /**
+     * This test performs a simple <tt>RIGHT OUTER JOIN</tt> statement where
+     * the table on the left has multiple tuples which can join with a
+     * tuple from the table on the right to see if the query produces
+     * the expected results.
+     *
+     * @throws Exception if any query parsing or execution issues occur.
+     */
     public void testRightOuterJoinM1() throws Throwable {
         TupleLiteral[] expected = {
                 new TupleLiteral(2, 2, 3, 2, 3, 1),
@@ -199,6 +291,14 @@ public class TestSimpleJoins extends SqlTestCase {
         assert checkUnorderedResults(expected, result);
     }
 
+    /**
+     * This test performs a simple <tt>RIGHT OUTER JOIN</tt> statement where
+     * the table on the right has multiple tuples which can join with a
+     * tuple from the table on the left to see if the query produces
+     * the expected results.
+     *
+     * @throws Exception if any query parsing or execution issues occur.
+     */
     public void testRightOuterJoin1M() throws Throwable {
         TupleLiteral[] expected = {
                 new TupleLiteral(null, null, null, 1, 2, 3),
