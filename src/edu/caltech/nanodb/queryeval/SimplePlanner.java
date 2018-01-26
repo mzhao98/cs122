@@ -60,51 +60,94 @@ public class SimplePlanner extends AbstractPlannerImpl {
         //  order by
         // select (project)
 
+
+        // Ask at oh - how to create a new node with the child as a plan node
+
+        // looping through the projects
+        // passing the where through the join
+
+        logger.warn("getting from");
         FromClause fromClause = selClause.getFromClause();
+
+        if(fromClause == null)
+        {
+            // this is the case where we need to rename the table, since no table
+            logger.warn(String.format("no from %s", selClause.toString()));
+            String tableName = fromClause.getTableName();
+            selClause.getSelectValues();
+
+
+            // do we create a table
+            // TableInfo tableInfo = storageManager.getTableManager().createTable("name");
+
+            // using a schema
+            ProjectNode pNode = new ProjectNode(selClause.getSelectValues());
+            pNode.prepare();
+
+            return pNode;
+
+            // do we have to parse the values, if so, how do we do it
+            // do we loop through the string
+
+
+            // if(selClause.)
+        }
+
+
+        logger.warn(String.format("got from, %s", fromClause.toString()));
+
         PlanNode plan;
         // if from exists
         // either get the tables and join on a where (filter)
-        if (fromClause.isBaseTable()) {
-            // look through all the tuples
 
-            // just call makeSimpleSelect
-            plan = makeSimpleSelect(fromClause.getTableName(),
-                    selClause.getWhereExpr(), null);
-            logger.warn("is base table");
 
-        }
-
-        else if (fromClause.isDerivedTable()) {
+        if (fromClause.isDerivedTable()) {
             // call recursively
             logger.warn("derived");
             PlanNode childNode = makePlan(fromClause.getSelectClause(),
                     enclosingSelects);
-            plan = new SimpleFilterNode(childNode, selClause.getWhereExpr());
-            
-            plan.initialize();
+            logger.warn(String.format("plan = %s", childNode.toString()));
+
+            plan = new RenameNode(childNode, fromClause.getResultName());
+            plan.prepare();
+            logger.warn(String.format("plan = %s", plan.toString()));
         }
 
         // join expression
-        else {
+        else if(fromClause.isJoinExpr()) {
             plan = computeJoinClauses(fromClause, enclosingSelects);
         }
 
 
-//        if (selClause.getWhereExpr() != null) {
-//            logger.warn("get where table");
-//            PlanNode oldPlan = plan;
-//            plan = new SimpleFilterNode(oldPlan, selClause.getWhereExpr());
-//            logger.warn("end where table");
-//
-//        }
+        // base table
+        else {
+            // look through all the tuples
+            logger.warn("is base table");
 
-        if (!selClause.isTrivialProject()) {
-            throw new UnsupportedOperationException(
-                    "Not implemented:  project");
-            // ProjectNode projectNode = new ProjectNode(selClause.getSelectValues());
-            // curPlan = projectNode; // the project will store all the children
+            // just call makeSimpleSelect
+            plan = makeSimpleSelect(fromClause.getTableName(),
+                    selClause.getWhereExpr(), null);
+        }
+
+        // check for aggregates
+        if (selClause.getWhereExpr() != null) {
+            logger.warn("get where table");
+            PlanNode oldPlan = plan;
+            plan = new SimpleFilterNode(oldPlan, selClause.getWhereExpr());
+            plan.prepare();
+            logger.warn("end where table");
 
         }
+
+        if (!selClause.isTrivialProject()) {
+            // throw new UnsupportedOperationException("Not implemented:  project");
+            logger.warn("nontrivial project");
+            PlanNode oldPlan = plan;
+            plan = new ProjectNode(oldPlan, selClause.getSelectValues());
+            plan.prepare();
+
+        }
+
 
 
 //        if (!fromClause.isBaseTable()) {
@@ -122,42 +165,58 @@ public class SimplePlanner extends AbstractPlannerImpl {
     public PlanNode computeJoinClauses(FromClause fromClause, List<SelectClause> enclosingSelects)
             throws IOException {
 
+        // get renames working here
         PlanNode right;
         PlanNode left;
+        PlanNode temp;
+
+        // probably need to pass in where clause
 
         if(fromClause.getLeftChild().isJoinExpr()) {
-            left = computeJoinClauses(fromClause.getLeftChild(), enclosingSelects);
+            // need to rename
+            temp = computeJoinClauses(fromClause.getLeftChild(), enclosingSelects);
         }
         else if(fromClause.getLeftChild().isDerivedTable()) {
-            left = makePlan(fromClause.getRightChild().getSelectClause(), enclosingSelects);
+            // rename this shit
+            temp = makePlan(fromClause.getLeftChild().getSelectClause(), enclosingSelects);
         }
 
         // base table
         else {
             TableInfo tableInfo = storageManager.getTableManager().openTable(fromClause.getLeftChild().getTableName());
-            left = new FileScanNode(tableInfo, null);
+            temp = new FileScanNode(tableInfo, null);
+            // left = new RenameNode(temp, fromClause.getLeftChild().getResultName());
         }
+        left = new RenameNode(temp, fromClause.getLeftChild().getResultName());
 
         if(fromClause.getRightChild().isJoinExpr()) {
-            right = computeJoinClauses(fromClause.getRightChild(), enclosingSelects);
+            temp = computeJoinClauses(fromClause.getRightChild(), enclosingSelects);
         }
 
         else if(fromClause.getRightChild().isDerivedTable()) {
-            right = makePlan(fromClause.getRightChild().getSelectClause(), enclosingSelects);
+            temp = makePlan(fromClause.getRightChild().getSelectClause(), enclosingSelects);
         }
 
         // base table
         else {
             // set right to something
             TableInfo tableInfo = storageManager.getTableManager().openTable(fromClause.getRightChild().getTableName());
-            right = new FileScanNode(tableInfo, null);
+            // PlanNode temp;
+            // temp = new FileScanNode(tableInfo, null);
+            temp = new RenameNode(temp, fromClause.getRightChild().getResultName());
         }
 
+        right = new RenameNode(temp, fromClause.getRightChild().getResultName());
 
+        // may need to nest everything in a rename node
+//        if(fromClause)
         // check the join conditions
         NestedLoopJoinNode joinNode = new NestedLoopJoinNode(left, right,
                 fromClause.getJoinType(), fromClause.getOnExpression());
         joinNode.prepare();
+
+//        PlanNode rename = new RenameNode(joinNode, fromClause.getResultName());
+//        rename.prepare();
         return joinNode;
 
     }
