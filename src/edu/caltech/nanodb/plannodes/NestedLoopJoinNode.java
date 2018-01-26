@@ -199,16 +199,40 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
      * @throws IOException if a db file failed to open at some point
      */
     public Tuple getNextTuple() throws IOException {
+//        logger.warn("getNextTuple");
         if (done)
             return null;
 
         while (getTuplesToJoin()) {
             if (canJoinTuples() || rightTuple == allNulls) {
+//                logger.warn("Found tuples");
+//                if (joinType != JoinType.INNER) {
+//                    logger.warn("matched: " + matched + " nullJoined: " + nullJoined);
+//                }
+//                String lt = String.format("");
+//                String rt = String.format("");
+//                if (leftTuple != null) {
+//                    for (int i = 0; i < leftTuple.getColumnCount(); i++) {
+//                        lt += String.format("%s", leftTuple.getColumnValue(i).toString());
+//                    }
+//                }
+//                if (rightTuple != null && rightTuple != allNulls) {
+//                    for (int i = 0; i < rightTuple.getColumnCount(); i++) {
+//                        rt += String.format("%s", rightTuple.getColumnValue(i).toString());
+//                    }
+//                }
+//                logger.warn(lt);
+//                logger.warn(rt);
                 if (leftTuple == null && rightTuple == null) {
                     done = true;
                     return null;
                 }
-                matched = true;
+                if (rightTuple != allNulls) {
+                    matched = true;
+                }
+//                System.out.println(leftTuple);
+//                System.out.println(rightTuple);
+                System.out.println(joinTuples(leftTuple, rightTuple));
                 return joinTuples(leftTuple, rightTuple);
             }
         }
@@ -224,62 +248,167 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
      *         {@code false} if no more pairs of tuples are available to join.
      */
     private boolean getTuplesToJoin() throws IOException {
+//        logger.warn("getTuplesToJoin");
+//        String lt = String.format("");
+//        String rt = String.format("");
+//        if (leftTuple != null) {
+//            for (int i = 0; i < leftTuple.getColumnCount(); i++) {
+//                lt += String.format("%s", leftTuple.getColumnValue(i).toString());
+//            }
+//        }
+//        if (rightTuple != null && rightTuple != allNulls) {
+//            for (int i = 0; i < rightTuple.getColumnCount(); i++) {
+//                rt += String.format("%s", rightTuple.getColumnValue(i).toString());
+//            }
+//        }
+//        logger.warn(lt);
+//        logger.warn(rt);
+
         // Case for inner joins
         if (joinType == JoinType.INNER){
+//            logger.warn("Inner");
             if (leftTuple == null && rightTuple == null){
+                logger.warn("Initialize");
                 leftTuple = leftChild.getNextTuple();
                 rightTuple = rightChild.getNextTuple();
-                return true;
+                if (leftTuple != null && rightTuple != null) {
+                    return true;
+                }
             }
 
             else if (leftTuple != null && rightTuple != null){
+//                logger.warn("Advance");
                 rightTuple = rightChild.getNextTuple();
-                return true;
-            }
-
-            else if(leftTuple != null && rightTuple == null) {
-                leftTuple = leftChild.getNextTuple();
-                rightChild.initialize();
-                rightTuple = rightChild.getNextTuple();
-                if (leftTuple == null) {
-                    done = true;
-                    return false;
+                if (rightTuple == null) {
+//                    logger.warn("Reset");
+                    leftTuple = leftChild.getNextTuple();
+                    rightChild.initialize();
+                    rightTuple = rightChild.getNextTuple();
+//                    lt = String.format("");
+//                    rt = String.format("");
+//                    if (leftTuple != null) {
+//                        for (int i = 0; i < leftTuple.getColumnCount(); i++) {
+//                            lt += String.format("%s", leftTuple.getColumnValue(i).toString());
+//                        }
+//                    }
+//                    if (rightTuple != null) {
+//                        for (int i = 0; i < rightTuple.getColumnCount(); i++) {
+//                            rt += String.format("%s", rightTuple.getColumnValue(i).toString());
+//                        }
+//                    }
+//                    logger.warn(lt);
+//                    logger.warn(rt);
+                    if (leftTuple == null) {
+                        done = true;
+                        return false;
+                    }
+                    return true;
                 }
                 return true;
             }
+
+//            else if(leftTuple != null && rightTuple == null) {
+//                logger.warn("Reset");
+//                leftTuple = leftChild.getNextTuple();
+//                rightChild.initialize();
+//                rightTuple = rightChild.getNextTuple();
+//                if (leftTuple == null) {
+//                    done = true;
+//                    return false;
+//                }
+//                return true;
+//            }
             done = true;
             return false;
         }
 
         // Case for outer joins
         else if (joinType == JoinType.RIGHT_OUTER || joinType == JoinType.LEFT_OUTER) {
-            if (leftTuple == null && rightTuple == null){
-                leftTuple = leftChild.getNextTuple();
-                rightTuple = rightChild.getNextTuple();
-                return true;
-            }
+//            logger.warn("outer");
+//            logger.warn("matched: " + matched + " nullJoined: " + nullJoined);
 
-            if (leftTuple != null && rightTuple != null){
-                rightTuple = rightChild.getNextTuple();
-                return true;
-            }
-
-            else if(leftTuple != null && rightTuple == null && !nullJoined && !matched) {
-                nullJoined = true;
-                rightTuple = allNulls;
-                return true;
-            }
-
-            else if(nullJoined) {
+            if(nullJoined) {
+//                logger.warn("Already NJ");
                 leftTuple = leftChild.getNextTuple();
                 rightChild.initialize();
                 rightTuple = rightChild.getNextTuple();
+//
+//                lt = String.format("");
+//                rt = String.format("");
+//                if (leftTuple != null) {
+//                    for (int i = 0; i < leftTuple.getColumnCount(); i++) {
+//                        lt += String.format("%s", leftTuple.getColumnValue(i).toString());
+//                    }
+//                }
+//                if (rightTuple != null && rightTuple != allNulls) {
+//                    for (int i = 0; i < rightTuple.getColumnCount(); i++) {
+//                        rt += String.format("%s", rightTuple.getColumnValue(i).toString());
+//                    }
+//                }
+//                logger.warn(lt);
+//                logger.warn(rt);
+
                 matched = false;
                 if (leftTuple == null) {
                     done = true;
                     return false;
                 }
+
                 nullJoined = false;
+
+                if (rightTuple == null) {
+                    rightTuple = allNulls;
+                    nullJoined = true;
+                }
+
+                return true;
+            }
+
+            if (leftTuple == null && rightTuple == null){
+//                logger.warn("Init");
+                leftTuple = leftChild.getNextTuple();
+                rightTuple = rightChild.getNextTuple();
+                if (leftTuple == null) {
+                    done = true;
+                    return false;
+                }
+                if (rightTuple == null) {
+//                    logger.warn("Nulljoin");
+                    nullJoined = true;
+                    rightTuple = allNulls;
+                    return true;
+                }
+            }
+
+            if (leftTuple != null && rightTuple != null){
+//                logger.warn("Advance");
+                rightTuple = rightChild.getNextTuple();
+                if (rightTuple == null && !nullJoined && !matched) {
+//                    logger.warn("Nulljoin");
+                    nullJoined = true;
+                    rightTuple = allNulls;
+                    return true;
+                }
+
+                if (rightTuple == null) {
+                    leftTuple = leftChild.getNextTuple();
+                    rightChild.initialize();
+                    rightTuple = rightChild.getNextTuple();
+
+                    matched = false;
+                    if (leftTuple == null) {
+                        done = true;
+                        return false;
+                    }
+
+                    nullJoined = false;
+
+                    if (rightTuple == null) {
+                        rightTuple = allNulls;
+                        nullJoined = true;
+                    }
+                    return true;
+                }
                 return true;
             }
             done = true;
