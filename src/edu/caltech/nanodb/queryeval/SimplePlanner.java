@@ -9,8 +9,10 @@ import org.apache.log4j.Logger;
 
 import edu.caltech.nanodb.queryast.FromClause;
 import edu.caltech.nanodb.queryast.SelectClause;
+import edu.caltech.nanodb.queryast.SelectValue;
 
 import edu.caltech.nanodb.expressions.Expression;
+import edu.caltech.nanodb.expressions.AggregateProcessor;
 
 import edu.caltech.nanodb.relations.TableInfo;
 
@@ -47,10 +49,31 @@ public class SimplePlanner extends AbstractPlannerImpl {
         // makeSimpleSelect() to handle simple SELECT queries with one table,
         // and an optional WHERE clause.
 
+        // Process the aggregate commands.
         if (enclosingSelects != null && !enclosingSelects.isEmpty()) {
             throw new UnsupportedOperationException(
                     "Not implemented:  enclosing queries");
         }
+
+        List<SelectValue> selectValues = selClause.getSelectValues();
+        AggregateProcessor processor = new AggregateProcessor();
+        boolean hasAgg = false;
+
+        //for (int s = 0; s < selectValues.size(); s++){
+        for (SelectValue sv : selectValues) {
+
+                // Skip select-values that aren't expressions
+            //SelectValue sv= selectValues.get(s);
+            if (!sv.isExpression()){
+                continue;
+            }
+            Expression e = sv.getExpression().traverse(processor);
+            sv.setExpression(e);
+            if (e.toString().contains("aggrfn")){
+                hasAgg = true;
+            }
+        }
+
 
         // from clause
         // (joins)
@@ -129,7 +152,7 @@ public class SimplePlanner extends AbstractPlannerImpl {
                     selClause.getWhereExpr(), null);
         }
 
-        // check for aggregates
+        // check for where
         if (selClause.getWhereExpr() != null) {
             logger.warn("get where table");
             PlanNode oldPlan = plan;
@@ -139,11 +162,18 @@ public class SimplePlanner extends AbstractPlannerImpl {
 
         }
 
+        if(hasAgg || selClause.getGroupByExprs().size() > 0){
+            PlanNode aggNode = plan;
+            plan = new HashedGroupAggregateNode(aggNode,
+                    selClause.getGroupByExprs(), processor.getAggregates());
+            plan.prepare();
+        }
+
         if (!selClause.isTrivialProject()) {
             // throw new UnsupportedOperationException("Not implemented:  project");
             logger.warn("nontrivial project");
             PlanNode oldPlan = plan;
-            plan = new ProjectNode(oldPlan, selClause.getSelectValues());
+            plan = new ProjectNode(oldPlan, selectValues);
             plan.prepare();
 
         }

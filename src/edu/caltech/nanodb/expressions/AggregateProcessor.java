@@ -11,18 +11,27 @@ import edu.caltech.nanodb.functions.Function;
 
 public class AggregateProcessor implements ExpressionProcessor {
 
-    int counter = 0;
+    private int counter = 0;
     /*PlanNode newNode = new HashedGroupAggregateNode(PlanNode subplan,
             List<Expression> groupByExprs, Map<String, FunctionCall> aggregates)*/
 
-    HashMap<String, FunctionCall> aggregates = new HashMap<String, FunctionCall>();
+    private HashMap<String, FunctionCall> aggregates;
 
+    public AggregateProcessor() {
+        this.counter = 0;
+    /*PlanNode newNode = new HashedGroupAggregateNode(PlanNode subplan,
+            List<Expression> groupByExprs, Map<String, FunctionCall> aggregates)*/
 
+        this.aggregates = new HashMap<String, FunctionCall>();
+    }
 
     public void enter(Expression node){
         counter += 1;
     }
 
+    public HashMap<String, FunctionCall> getAggregates(){
+        return aggregates;
+    }
 
 
     public Expression leave(Expression node){
