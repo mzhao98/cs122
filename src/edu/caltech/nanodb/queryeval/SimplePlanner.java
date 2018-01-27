@@ -54,37 +54,24 @@ public class SimplePlanner extends AbstractPlannerImpl {
             throw new UnsupportedOperationException(
                     "Not implemented:  enclosing queries");
         }
-
+        // Traverse and process the select values to search for any aggregate
+        // functions.
         List<SelectValue> selectValues = selClause.getSelectValues();
         AggregateProcessor processor = new AggregateProcessor();
         boolean hasAgg = false;
 
-        //for (int s = 0; s < selectValues.size(); s++){
         for (SelectValue sv : selectValues) {
-
-                // Skip select-values that aren't expressions
-            //SelectValue sv= selectValues.get(s);
+            // Skip select-values that aren't expressions
             if (!sv.isExpression()){
                 continue;
             }
             Expression e = sv.getExpression().traverse(processor);
             sv.setExpression(e);
+            // Raise hasAggregate flag if we've encountered an aggregate function.
             if (e.toString().contains("aggrfn")){
                 hasAgg = true;
             }
         }
-
-
-
-
-        // from clause
-        // (joins)
-        // where (filter)
-        //  group by hashed group aggregate
-        //  having
-        //  order by
-        // select (project)
-
 
         // Ask at oh - how to create a new node with the child as a plan node
 
@@ -143,6 +130,15 @@ public class SimplePlanner extends AbstractPlannerImpl {
 
         // join expression
         else if(fromClause.isJoinExpr()) {
+            logger.warn("join");
+
+            // if FROM clause has join and aggregate in "ON" expression, throw an IllegalArgumentException.
+            if (fromClause.getOnExpression() != null){
+                Expression onEx = fromClause.getOnExpression().traverse(processor);
+                if (onEx.toString().contains("aggrfn")){
+                    throw new IllegalArgumentException("On clause can't have aggregate functions");
+                }
+            }
             plan = computeJoinClauses(fromClause, enclosingSelects);
         }
 
@@ -151,14 +147,17 @@ public class SimplePlanner extends AbstractPlannerImpl {
         else {
             // look through all the tuples
             logger.warn("is base table");
-
-            // just call makeSimpleSelect
             plan = makeSimpleSelect(fromClause.getTableName(),
                     selClause.getWhereExpr(), null);
         }
 
         // check for where
         if (selClause.getWhereExpr() != null) {
+            // if WHERE clause has aggregate function in the expression, throw an IllegalArgumentException.
+            Expression onEx = selClause.getWhereExpr().traverse(processor);
+            if (onEx.toString().contains("aggrfn")){
+                throw new IllegalArgumentException("WHERE clause can't have aggregate functions");
+            }
             logger.warn("get where table");
             PlanNode oldPlan = plan;
             plan = new SimpleFilterNode(oldPlan, selClause.getWhereExpr());
@@ -167,6 +166,7 @@ public class SimplePlanner extends AbstractPlannerImpl {
 
         }
 
+        // Create Grouping and Aggregate Node.
         if(hasAgg || selClause.getGroupByExprs().size() > 0){
             PlanNode aggNode = plan;
             plan = new HashedGroupAggregateNode(aggNode,
@@ -218,7 +218,7 @@ public class SimplePlanner extends AbstractPlannerImpl {
 
         if(fromClause.getLeftChild().isJoinExpr()) {
             // need to rename
-            temp = computeJoinClauses(fromClause.getLeftChild(), enclosingSelects);
+            temp = makePlan(fromClause.getLeftChild().getSelectClause(), enclosingSelects);
         }
         else if(fromClause.getLeftChild().isDerivedTable()) {
             // rename this shit
@@ -234,7 +234,8 @@ public class SimplePlanner extends AbstractPlannerImpl {
         left = new RenameNode(temp, fromClause.getLeftChild().getResultName());
 
         if(fromClause.getRightChild().isJoinExpr()) {
-            temp = computeJoinClauses(fromClause.getRightChild(), enclosingSelects);
+            // temp = computeJoinClauses(fromClause.getRightChild(), enclosingSelects);
+            temp = makePlan(fromClause.getRightChild().getSelectClause(), enclosingSelects);
         }
 
         else if(fromClause.getRightChild().isDerivedTable()) {
