@@ -73,39 +73,21 @@ public class SimplePlanner extends AbstractPlannerImpl {
             }
         }
 
-        // Ask at oh - how to create a new node with the child as a plan node
-
-        // looping through the projects
-        // passing the where through the join
-
+        // get the from clause
         logger.warn("getting from");
         FromClause fromClause = selClause.getFromClause();
 
+        // if no from clause
         if(fromClause == null)
         {
-            // this is the case where we need to rename the table, since no table
-            logger.warn(String.format("no from %s", selClause.toString()));
-//            String tableName = fromClause.getTableName();
-//            selClause.getSelectValues();
-
-
-            // do we create a table
-            // TableInfo tableInfo = storageManager.getTableManager().createTable("name");
-
-            // using a schema
+            // can use a project here
             ProjectNode projectNode = new ProjectNode(selClause.getSelectValues());
-            logger.warn(String.format("clasue %s", selClause.getSelectValues().toString()));
             logger.warn(String.format("project %s", projectNode.toString()));
 
             projectNode.prepare();
 
             return projectNode;
 
-            // do we have to parse the values, if so, how do we do it
-            // do we loop through the string
-
-
-            // if(selClause.)
         }
 
 
@@ -115,14 +97,15 @@ public class SimplePlanner extends AbstractPlannerImpl {
         // if from exists
         // either get the tables and join on a where (filter)
 
-
+        // if from clause has select clause
         if (fromClause.isDerivedTable()) {
-            // call recursively
+            // get child recursively
             logger.warn("derived");
             PlanNode childNode = makePlan(fromClause.getSelectClause(),
                     enclosingSelects);
             logger.warn(String.format("plan = %s", childNode.toString()));
 
+            // update the plan
             plan = new RenameNode(childNode, fromClause.getResultName());
             plan.prepare();
             logger.warn(String.format("plan = %s", plan.toString()));
@@ -132,32 +115,38 @@ public class SimplePlanner extends AbstractPlannerImpl {
         else if(fromClause.isJoinExpr()) {
             logger.warn("join");
 
-            // if FROM clause has join and aggregate in "ON" expression, throw an IllegalArgumentException.
+            // if FROM clause has join and aggregate in "ON" expression,
+            // throw an IllegalArgumentException.
             if (fromClause.getOnExpression() != null){
                 Expression onEx = fromClause.getOnExpression().traverse(processor);
                 if (onEx.toString().contains("aggrfn")){
                     throw new IllegalArgumentException("On clause can't have aggregate functions");
                 }
             }
+
+            // compute the plan by joining
             plan = computeJoinClauses(fromClause, enclosingSelects);
         }
 
 
         // base table
         else {
-            // look through all the tuples
+            // can just use makesimpleselect
             logger.warn("is base table");
             plan = makeSimpleSelect(fromClause.getTableName(),
                     selClause.getWhereExpr(), null);
         }
 
-        // check for where
+        // check for where clause
         if (selClause.getWhereExpr() != null) {
-            // if WHERE clause has aggregate function in the expression, throw an IllegalArgumentException.
+            // if WHERE clause has aggregate function in the expression,
+            // throw an IllegalArgumentException.
             Expression onEx = selClause.getWhereExpr().traverse(processor);
-            if (onEx.toString().contains("aggrfn")){
+            if (onEx.toString().contains("aggrfn")) {
                 throw new IllegalArgumentException("WHERE clause can't have aggregate functions");
             }
+
+            // otherwise generate the plan
             logger.warn("get where table");
             PlanNode oldPlan = plan;
             plan = new SimpleFilterNode(oldPlan, selClause.getWhereExpr());
@@ -166,14 +155,15 @@ public class SimplePlanner extends AbstractPlannerImpl {
 
         }
 
-        // Create Grouping and Aggregate Node.
-        if(hasAgg || selClause.getGroupByExprs().size() > 0){
+        // Create Grouping and Aggregate Node, if necessary
+        if(hasAgg || selClause.getGroupByExprs().size() > 0) {
             PlanNode aggNode = plan;
             plan = new HashedGroupAggregateNode(aggNode,
                     selClause.getGroupByExprs(), processor.getAggregates());
             plan.prepare();
         }
 
+        // if project is not trivial, add a node to the hierarchy
         if (!selClause.isTrivialProject()) {
             // throw new UnsupportedOperationException("Not implemented:  project");
             logger.warn("nontrivial project");
@@ -183,8 +173,7 @@ public class SimplePlanner extends AbstractPlannerImpl {
 
         }
 
-
-        // this should go last
+        // this should go last, as we order last
         if(selClause.getOrderByExprs().size() > 0)
         {
             logger.warn("order by");
@@ -193,20 +182,15 @@ public class SimplePlanner extends AbstractPlannerImpl {
             plan.prepare();
         }
 
-
-//        if (!fromClause.isBaseTable()) {
-//            throw new UnsupportedOperationException(
-//                    "Not implemented:  joins or subqueries in FROM clause");
-//
-//
-//        }
+        // now return the plan
         logger.warn(String.format("return %s", plan.toString()));
         return plan;
-        // return makeSimpleSelect(fromClause.getTableName(), selClause.getWhereExpr(), null);
     }
 
 
-    public PlanNode computeJoinClauses(FromClause fromClause, List<SelectClause> enclosingSelects)
+    // helper function to compute our join clauses
+    public PlanNode computeJoinClauses(FromClause fromClause,
+                                       List<SelectClause> enclosingSelects)
             throws IOException {
 
         // get renames working here
@@ -214,14 +198,13 @@ public class SimplePlanner extends AbstractPlannerImpl {
         PlanNode left;
         PlanNode temp;
 
-        // probably need to pass in where clause
-
+        // test cases and make recursive calls when necessary
         if(fromClause.getLeftChild().isJoinExpr()) {
-            // need to rename
-            temp = makePlan(fromClause.getLeftChild().getSelectClause(), enclosingSelects);
+            temp = computeJoinClauses(fromClause.getLeftChild(), enclosingSelects);
+            // temp = makePlan(fromClause.getLeftChild().getSelectClause(), enclosingSelects);
+
         }
         else if(fromClause.getLeftChild().isDerivedTable()) {
-            // rename this shit
             temp = makePlan(fromClause.getLeftChild().getSelectClause(), enclosingSelects);
         }
 
@@ -231,11 +214,12 @@ public class SimplePlanner extends AbstractPlannerImpl {
             temp = new FileScanNode(tableInfo, null);
             // left = new RenameNode(temp, fromClause.getLeftChild().getResultName());
         }
+
         left = new RenameNode(temp, fromClause.getLeftChild().getResultName());
 
         if(fromClause.getRightChild().isJoinExpr()) {
-            // temp = computeJoinClauses(fromClause.getRightChild(), enclosingSelects);
-            temp = makePlan(fromClause.getRightChild().getSelectClause(), enclosingSelects);
+            temp = computeJoinClauses(fromClause.getRightChild(), enclosingSelects);
+            // temp = makePlan(fromClause.getRightChild().getSelectClause(), enclosingSelects);
         }
 
         else if(fromClause.getRightChild().isDerivedTable()) {
@@ -253,15 +237,11 @@ public class SimplePlanner extends AbstractPlannerImpl {
 
         right = new RenameNode(temp, fromClause.getRightChild().getResultName());
 
-        // may need to nest everything in a rename node
-//        if(fromClause)
-        // check the join conditions
+        // check the join conditions and join
         NestedLoopJoinNode joinNode = new NestedLoopJoinNode(left, right,
                 fromClause.getJoinType(), fromClause.getOnExpression());
         joinNode.prepare();
 
-//        PlanNode rename = new RenameNode(joinNode, fromClause.getResultName());
-//        rename.prepare();
         return joinNode;
 
     }
