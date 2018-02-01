@@ -3,6 +3,7 @@ package edu.caltech.nanodb.queryeval;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.lang.Comparable;
 
 import edu.caltech.nanodb.expressions.ArithmeticOperator;
 import edu.caltech.nanodb.expressions.BooleanOperator;
@@ -263,6 +264,9 @@ public class SelectivityEstimator {
         ColumnStats colStats = stats.get(colIndex);
 
         Object value = literalValue.evaluate();
+        Comparable comparable = (Comparable) literalValue;
+        Comparable minValue = (Comparable) colStats.getMinValue();
+        Comparable maxValue = (Comparable) colStats.getMaxValue();
 
         switch (compType) {
         case EQUALS:
@@ -270,10 +274,12 @@ public class SelectivityEstimator {
             // Compute the equality value.  Then, if inequality, invert the
             // result.
 
-            // TODO:  Compute the selectivity.  Note that the ColumnStats type
-            //        will return special values to indicate "unknown" stats;
-            //        your code should detect when this is the case, and fall
-            //        back on the default selectivity.
+            if (colStats.getNumUniqueValues() != -1) {
+                selectivity = 1 / colStats.getNumUniqueValues();
+                if (compType == CompareOperator.Type.NOT_EQUALS) {
+                    selectivity = 1 - selectivity;
+                }
+            }
 
             break;
 
@@ -288,9 +294,22 @@ public class SelectivityEstimator {
             if (typeSupportsCompareEstimates(sqlType) &&
                 colStats.hasDifferentMinMaxValues()) {
 
-                // TODO:  Compute the selectivity.  The if-condition ensures
-                //        that you will only compute selectivities if the type
-                //        supports it, and if there are valid stats.
+                if (comparable.compareTo(minValue) < 0) {
+                    selectivity = 1;
+                }
+
+                else if (comparable.compareTo(maxValue) > 0) {
+                    selectivity = 0;
+                }
+
+                else {
+                    selectivity = computeRatio(colStats.getMaxValue(), value,
+                            colStats.getMaxValue(), colStats.getMinValue());
+                }
+
+                if (compType == CompareOperator.Type.LESS_THAN) {
+                    selectivity = 1 - selectivity;
+                }
             }
 
             break;
@@ -305,9 +324,26 @@ public class SelectivityEstimator {
 
             if (typeSupportsCompareEstimates(sqlType) &&
                 colStats.hasDifferentMinMaxValues()) {
+                if (typeSupportsCompareEstimates(sqlType) &&
+                        colStats.hasDifferentMinMaxValues()) {
 
-                // TODO:  Compute the selectivity.  Watch out for copy-paste
-                //        bugs...
+                    if (comparable.compareTo(minValue) > 0) {
+                        selectivity = 1;
+                    }
+
+                    else if (comparable.compareTo(maxValue) < 0) {
+                        selectivity = 0;
+                    }
+
+                    else {
+                        selectivity = computeRatio(value, colStats.getMinValue(),
+                                colStats.getMaxValue(), colStats.getMinValue());
+                    }
+
+                    if (compType == CompareOperator.Type.GREATER_THAN) {
+                        selectivity = 1 - selectivity;
+                    }
+                }
             }
 
             break;
