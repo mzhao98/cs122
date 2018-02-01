@@ -466,6 +466,8 @@ public class HeapTupleFile implements TupleFile {
                 // Look for data on this page.
             int numSlots = DataPage.getNumSlots(dbPage);
             for (int iSlot = 0; iSlot < numSlots; iSlot++) {
+                // System.out.println("numTuples: " + numTuples);
+                // System.out.println("totalTupleSize: " + totalTupleSize);
                 // Get the offset of the tuple in the page.  If it's 0 then
                 // the slot is empty, and we skip to the next slot.
                 int offset = DataPage.getSlotValue(dbPage, iSlot);
@@ -476,8 +478,9 @@ public class HeapTupleFile implements TupleFile {
                 // HeapFilePageTuple object and return it.
                 tupleFile = new HeapFilePageTuple(schema, dbPage, iSlot, offset);
 
+                // System.out.println("tupleSize: " + tupleFile.getSize());
+
                 numTuples += 1;
-                totalTupleSize += tupleFile.getSize();
 
                 for (int i = 0; i < numColumns; i++) {
                     columnStatsCollector[i].addValue(tupleFile.getColumnValue(i));

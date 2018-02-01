@@ -270,7 +270,7 @@ public class SelectivityEstimator {
         ColumnStats colStats = stats.get(colIndex);
 
         Object value = literalValue.evaluate();
-        Comparable comparable = (Comparable) literalValue;
+        Comparable comparable = (Comparable) value;
         Comparable minValue = (Comparable) colStats.getMinValue();
         Comparable maxValue = (Comparable) colStats.getMaxValue();
 
@@ -309,8 +309,8 @@ public class SelectivityEstimator {
                 }
 
                 else {
-                    selectivity = computeRatio(colStats.getMaxValue(), value,
-                            colStats.getMaxValue(), colStats.getMinValue());
+                    selectivity = computeRatio(value, colStats.getMaxValue(),
+                            colStats.getMinValue(), colStats.getMaxValue());
                 }
 
                 if (compType == CompareOperator.Type.LESS_THAN) {
@@ -333,17 +333,17 @@ public class SelectivityEstimator {
                 if (typeSupportsCompareEstimates(sqlType) &&
                         colStats.hasDifferentMinMaxValues()) {
 
-                    if (comparable.compareTo(minValue) > 0) {
-                        selectivity = 1;
-                    }
-
-                    else if (comparable.compareTo(maxValue) < 0) {
+                    if (comparable.compareTo(minValue) < 0) {
                         selectivity = 0;
                     }
 
+                    else if (comparable.compareTo(maxValue) > 0) {
+                        selectivity = 1;
+                    }
+
                     else {
-                        selectivity = computeRatio(value, colStats.getMinValue(),
-                                colStats.getMaxValue(), colStats.getMinValue());
+                        selectivity = computeRatio(colStats.getMinValue(), value,
+                                colStats.getMinValue(), colStats.getMaxValue());
                     }
 
                     if (compType == CompareOperator.Type.GREATER_THAN) {

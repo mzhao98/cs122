@@ -74,7 +74,7 @@ public class SimplePlanner extends AbstractPlannerImpl {
         }
 
         // get the from clause
-        logger.warn("getting from");
+        // logger.warn("getting from");
         FromClause fromClause = selClause.getFromClause();
 
         // if no from clause
@@ -82,7 +82,7 @@ public class SimplePlanner extends AbstractPlannerImpl {
         {
             // can use a project here
             ProjectNode projectNode = new ProjectNode(selClause.getSelectValues());
-            logger.warn(String.format("project %s", projectNode.toString()));
+            // logger.warn(String.format("project %s", projectNode.toString()));
 
             projectNode.prepare();
 
@@ -91,7 +91,7 @@ public class SimplePlanner extends AbstractPlannerImpl {
         }
 
 
-        logger.warn(String.format("got from, %s", fromClause.toString()));
+        // logger.warn(String.format("got from, %s", fromClause.toString()));
 
         PlanNode plan;
         // if from exists
@@ -100,20 +100,20 @@ public class SimplePlanner extends AbstractPlannerImpl {
         // if from clause has select clause
         if (fromClause.isDerivedTable()) {
             // get child recursively
-            logger.warn("derived");
+            // logger.warn("derived");
             PlanNode childNode = makePlan(fromClause.getSelectClause(),
                     enclosingSelects);
-            logger.warn(String.format("plan = %s", childNode.toString()));
+            // logger.warn(String.format("plan = %s", childNode.toString()));
 
             // update the plan
             plan = new RenameNode(childNode, fromClause.getResultName());
             plan.prepare();
-            logger.warn(String.format("plan = %s", plan.toString()));
+            // logger.warn(String.format("plan = %s", plan.toString()));
         }
 
         // join expression
         else if(fromClause.isJoinExpr()) {
-            logger.warn("join");
+            // logger.warn("join");
 
             // if FROM clause has join and aggregate in "ON" expression,
             // throw an IllegalArgumentException.
@@ -132,7 +132,7 @@ public class SimplePlanner extends AbstractPlannerImpl {
         // base table
         else {
             // can just use makesimpleselect
-            logger.warn("is base table");
+            // logger.warn("is base table");
             plan = makeSimpleSelect(fromClause.getTableName(),
                     selClause.getWhereExpr(), null);
         }
@@ -147,11 +147,11 @@ public class SimplePlanner extends AbstractPlannerImpl {
             }
 
             // otherwise generate the plan
-            logger.warn("get where table");
+            // logger.warn("get where table");
             PlanNode oldPlan = plan;
             plan = new SimpleFilterNode(oldPlan, selClause.getWhereExpr());
             plan.prepare();
-            logger.warn("end where table");
+            // logger.warn("end where table");
 
         }
 
@@ -166,7 +166,7 @@ public class SimplePlanner extends AbstractPlannerImpl {
         // if project is not trivial, add a node to the hierarchy
         if (!selClause.isTrivialProject()) {
             // throw new UnsupportedOperationException("Not implemented:  project");
-            logger.warn("nontrivial project");
+            // logger.warn("nontrivial project");
             PlanNode oldPlan = plan;
             plan = new ProjectNode(oldPlan, selectValues);
             plan.prepare();
@@ -176,14 +176,14 @@ public class SimplePlanner extends AbstractPlannerImpl {
         // this should go last, as we order last
         if(selClause.getOrderByExprs().size() > 0)
         {
-            logger.warn("order by");
+            // logger.warn("order by");
             PlanNode sNode = plan;
             plan = new SortNode(sNode, selClause.getOrderByExprs());
             plan.prepare();
         }
 
         // now return the plan
-        logger.warn(String.format("return %s", plan.toString()));
+        // logger.warn(String.format("return %s", plan.toString()));
         return plan;
     }
 
