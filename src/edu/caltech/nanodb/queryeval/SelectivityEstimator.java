@@ -396,11 +396,21 @@ public class SelectivityEstimator {
 
         ColumnStats colOneStats = stats.get(colOneIndex);
         ColumnStats colTwoStats = stats.get(colTwoIndex);
+        
+        if(colOneStats.getNumUniqueValues() != -1 && colTwoStats.getNumUniqueValues() != -1){
+            if (compType == CompareOperator.Type.EQUALS || compType == CompareOperator.Type.NOT_EQUALS){
 
-        // TODO:  Compute the selectivity.  Note that the ColumnStats type
-        //        will return special values to indicate "unknown" stats;
-        //        your code should detect when this is the case, and fall
-        //        back on the default selectivity.
+                if (colOneStats.getNumUniqueValues() > colTwoStats.getNumUniqueValues()){
+                    selectivity = 1/colOneStats.getNumUniqueValues();
+                }
+                else{
+                    selectivity = 1/colTwoStats.getNumUniqueValues();
+                }
+                if(compType == CompareOperator.Type.NOT_EQUALS){
+                    selectivity = 1 - selectivity;
+                }
+            }
+        }
 
         return selectivity;
     }
