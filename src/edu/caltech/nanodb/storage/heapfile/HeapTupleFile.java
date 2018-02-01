@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import edu.caltech.nanodb.relations.SQLDataType;
 import org.apache.log4j.Logger;
 
 import edu.caltech.nanodb.queryeval.ColumnStats;
@@ -429,8 +430,78 @@ public class HeapTupleFile implements TupleFile {
 
     @Override
     public void analyze() throws IOException {
-        // TODO:  Complete this implementation.
-        throw new UnsupportedOperationException("Not yet implemented!");
+        int numTuples = 0;
+        int totalTupleSize = 0;
+        float avgTupleSize = 0;
+        int numColumns = schema.numColumns();
+        ColumnStatsCollector[] columnStatsCollector = new ColumnStatsCollector[numColumns];
+        for (int i = 0; i < numColumns; i++) {
+            SQLDataType dataType = schema.getColumnInfo(i).getType().getBaseType();
+            columnStatsCollector[i] = new ColumnStatsCollector(dataType);
+        }
+        HeapFilePageTuple tupleFile = null;
+
+        int pageNo = 1;
+        DBPage dbPage;
+        while (true) {
+            // Try to load the page without creating a new one.
+            try {
+                dbPage = storageManager.loadDBPage(dbFile, pageNo);
+            }
+            catch (EOFException eofe) {
+                // Couldn't load the current page, because it doesn't exist.
+                // Break out of the loop.
+                logger.debug("Finished searching through blocks.");
+                break;
+            }
+
+            totalTupleSize += DataPage.getTupleDataEnd(dbPage) - DataPage.getTupleDataStart(dbPage);
+
+            // Scan through the data pages until we hit the end of the table
+            // file.  It may be that the first run of data pages is empty,
+            // so just keep looking until we hit the end of the file.
+
+            // Header page is page 0, so first data page is page 1.
+            // page_scan:  // So we can break out of the outer loop from inside the inner one
+                // Look for data on this page.
+            int numSlots = DataPage.getNumSlots(dbPage);
+            for (int iSlot = 0; iSlot < numSlots; iSlot++) {
+                // Get the offset of the tuple in the page.  If it's 0 then
+                // the slot is empty, and we skip to the next slot.
+                int offset = DataPage.getSlotValue(dbPage, iSlot);
+                if (offset == DataPage.EMPTY_SLOT)
+                    continue;
+
+                // This is the first tuple in the file.  Build up the
+                // HeapFilePageTuple object and return it.
+                tupleFile = new HeapFilePageTuple(schema, dbPage, iSlot, offset);
+
+                numTuples += 1;
+                totalTupleSize += tupleFile.getSize();
+
+                for (int i = 0; i < numColumns; i++) {
+                    columnStatsCollector[i].addValue(tupleFile.getColumnValue(i));
+                }
+            }
+
+            pageNo++;
+        }
+
+        int numDataPages = pageNo;
+        if (numTuples > 0) {
+            avgTupleSize = (float) totalTupleSize / numTuples;
+        }
+
+        ArrayList<ColumnStats> columnStats = new ArrayList<>(numColumns);
+
+        for (int i = 0; i < numColumns; i++) {
+            columnStats.add(columnStatsCollector[i].getColumnStats());
+        }
+
+        TableStats tableStats = new TableStats(numDataPages, numTuples, avgTupleSize, columnStats);
+        this.stats = tableStats;
+        heapFileManager.saveMetadata(this);
+        // throw new UnsupportedOperationException("Not yet implemented!");
     }
 
 
