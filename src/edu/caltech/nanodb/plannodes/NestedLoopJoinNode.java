@@ -186,8 +186,11 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
         PlanCost rightCost = rightChild.cost;
         PlanCost leftCost = leftChild.cost;
 
-        float selectivity = SelectivityEstimator.estimateSelectivity(predicate, schema, stats);
-
+        float selectivity = 1;
+        if(predicate != null) {
+            selectivity = SelectivityEstimator.estimateSelectivity(predicate,
+                    schema, stats);
+        }
         float cpuCost = leftCost.numTuples * rightCost.numTuples;
         float numTups = selectivity * (cpuCost);
         long blockIOs = rightCost.numBlockIOs + leftCost.numBlockIOs;
