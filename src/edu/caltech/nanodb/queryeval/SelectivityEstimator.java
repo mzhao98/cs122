@@ -150,15 +150,21 @@ public class SelectivityEstimator {
 
         switch (bool.getType()) {
         case AND_EXPR:
-            // TODO:  Compute selectivity of AND expression.
+            for (int i = 0; i < bool.getNumTerms(); i++) {
+                selectivity *= estimateSelectivity(bool.getTerm(i), exprSchema, stats);
+            }
             break;
 
         case OR_EXPR:
-            // TODO:  Compute selectivity of OR expression.
+            float orVal = 1.0f;
+            for (int i = 0; i < bool.getNumTerms(); i++) {
+                orVal *= 1 - estimateSelectivity(bool.getTerm(i), exprSchema, stats);
+            }
+            selectivity = selectivity - orVal;
             break;
 
         case NOT_EXPR:
-            // TODO:  Compute selectivity of NOT expression.
+            selectivity = 1 - estimateSelectivity(bool.getTerm(0), exprSchema, stats);
             break;
 
         default:
