@@ -487,7 +487,7 @@ public class HeapTupleFile implements TupleFile {
             pageNo++;
         }
 
-        int numDataPages = pageNo;
+        int numDataPages = pageNo - 1;
         if (numTuples > 0) {
             avgTupleSize = (float) totalTupleSize / numTuples;
         }

@@ -4,6 +4,7 @@ package edu.caltech.nanodb.plannodes;
 import java.io.IOException;
 import java.util.List;
 
+import edu.caltech.nanodb.queryeval.TableStats;
 import org.apache.log4j.Logger;
 
 import edu.caltech.nanodb.expressions.Expression;
@@ -182,8 +183,22 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
         // Use the parent class' helper-function to prepare the schema.
         prepareSchemaStats();
 
-        // TODO:  Implement the rest
-        cost = null;
+        PlanCost rightCost = rightChild.cost;
+        PlanCost leftCost = leftChild.cost;
+
+        float selectivity = SelectivityEstimator.estimateSelectivity(predicate, schema, stats);
+
+        float cpuCost = leftCost.numTuples * rightCost.numTuples;
+        float numTups = selectivity * (cpuCost);
+        long blockIOs = rightCost.numBlockIOs + leftCost.numBlockIOs;
+        float tupleLen = rightCost.tupleSize + leftCost.tupleSize;
+
+        if(joinType == JoinType.LEFT_OUTER || joinType == JoinType.RIGHT_OUTER)
+        {
+            numTups += leftCost.numTuples;
+        }
+
+        cost = new PlanCost(numTups, tupleLen, cpuCost, blockIOs);
     }
 
 

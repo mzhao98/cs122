@@ -12,6 +12,7 @@ import edu.caltech.nanodb.queryeval.ColumnStats;
 import edu.caltech.nanodb.queryeval.PlanCost;
 import edu.caltech.nanodb.queryeval.SelectivityEstimator;
 
+import org.apache.log4j.Logger;
 
 /**
  * This select plan node implements a simple filter of a subplan based on a
@@ -22,6 +23,7 @@ public class SimpleFilterNode extends SelectNode {
     public SimpleFilterNode(PlanNode child, Expression predicate) {
         super(child, predicate);
     }
+    private static Logger logger = Logger.getLogger(SimpleFilterNode.class);
 
 
     /**
@@ -113,8 +115,20 @@ public class SimpleFilterNode extends SelectNode {
         schema = leftChild.getSchema();
         ArrayList<ColumnStats> childStats = leftChild.getStats();
 
-        // TODO:  Compute the cost of the plan node!
-        cost = null;
+        // Get the cost of the plan node!
+        PlanCost childCost = leftChild.getCost();
+        if (childCost != null) {
+            cost = new PlanCost(childCost);
+
+            float selectivity = SelectivityEstimator.estimateSelectivity(predicate, schema, childStats);
+
+            cost.cpuCost += cost.numTuples;
+            cost.numTuples *= selectivity;
+        }
+        else {
+            logger.info(
+                    "Child's cost not available; not computing this node's cost.");
+        }
 
         // NOTE:  Normally we would also update the table statistics based on
         //        the predicate, but that's too complicated, so we'll leave
