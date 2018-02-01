@@ -115,7 +115,7 @@ public class DBPage implements Pinnable, AutoCloseable {
 
         if (pageNo < 0) {
             throw new IllegalArgumentException("pageNo must be >= 0 (got " +
-                pageNo + ")");
+                    pageNo + ")");
         }
 
         this.bufferManager = bufferManager;
@@ -183,13 +183,12 @@ public class DBPage implements Pinnable, AutoCloseable {
 
 
     /**
-     * Returns the page size in bytes, minus 4 bytes to make room for
-     * the linked list.
+     * Returns the page size in bytes.
      *
      * @return the page-size in bytes
      */
     public int getPageSize() {
-        return pageData.length - 4;
+        return pageData.length;
     }
 
 
@@ -206,7 +205,7 @@ public class DBPage implements Pinnable, AutoCloseable {
     public void unpin() {
         if (pinCount <= 0) {
             throw new IllegalStateException(
-                "pinCount is not positive (value is " + pinCount + ")");
+                    "pinCount is not positive (value is " + pinCount + ")");
         }
 
         // To facilitate debugging of pinned-page leaks!
@@ -533,7 +532,7 @@ public class DBPage implements Pinnable, AutoCloseable {
      */
     public int readUnsignedShort(int position) {
         int value = ((pageData[position++] & 0xFF) <<  8)
-                  | ((pageData[position  ] & 0xFF)      );
+                | ((pageData[position  ] & 0xFF)      );
 
         return value;
     }
@@ -551,7 +550,7 @@ public class DBPage implements Pinnable, AutoCloseable {
         // will be extended, so if original byte is negative, the resulting
         // int will be too.
         int value = ((pageData[position++]       ) <<  8)
-                  | ((pageData[position  ] & 0xFF)      );
+                | ((pageData[position  ] & 0xFF)      );
 
         return (short) value;
     }
@@ -589,7 +588,7 @@ public class DBPage implements Pinnable, AutoCloseable {
         // Don't chop off high-order bits.  When byte is cast to int, the sign will
         // be extended, so if original byte is negative, so will resulting int.
         int value = ((pageData[position++]       ) <<  8)
-                  | ((pageData[position  ] & 0xFF)      );
+                | ((pageData[position  ] & 0xFF)      );
 
         return (char) value;
     }
@@ -620,9 +619,9 @@ public class DBPage implements Pinnable, AutoCloseable {
      */
     public long readUnsignedInt(int position) {
         long value = ((pageData[position++] & 0xFF) << 24)
-                   | ((pageData[position++] & 0xFF) << 16)
-                   | ((pageData[position++] & 0xFF) <<  8)
-                   | ((pageData[position  ] & 0xFF)      );
+                | ((pageData[position++] & 0xFF) << 16)
+                | ((pageData[position++] & 0xFF) <<  8)
+                | ((pageData[position  ] & 0xFF)      );
 
         return value;
     }
@@ -637,9 +636,9 @@ public class DBPage implements Pinnable, AutoCloseable {
      */
     public int readInt(int position) {
         int value = ((pageData[position++] & 0xFF) << 24)
-                  | ((pageData[position++] & 0xFF) << 16)
-                  | ((pageData[position++] & 0xFF) <<  8)
-                  | ((pageData[position  ] & 0xFF)      );
+                | ((pageData[position++] & 0xFF) << 16)
+                | ((pageData[position++] & 0xFF) <<  8)
+                | ((pageData[position  ] & 0xFF)      );
 
         return value;
     }
@@ -671,13 +670,13 @@ public class DBPage implements Pinnable, AutoCloseable {
      */
     public long readLong(int position) {
         long value = ((long) (pageData[position++] & 0xFF) << 56)
-                   | ((long) (pageData[position++] & 0xFF) << 48)
-                   | ((long) (pageData[position++] & 0xFF) << 40)
-                   | ((long) (pageData[position++] & 0xFF) << 32)
-                   | ((long) (pageData[position++] & 0xFF) << 24)
-                   | ((long) (pageData[position++] & 0xFF) << 16)
-                   | ((long) (pageData[position++] & 0xFF) <<  8)
-                   | ((long) (pageData[position  ] & 0xFF)      );
+                | ((long) (pageData[position++] & 0xFF) << 48)
+                | ((long) (pageData[position++] & 0xFF) << 40)
+                | ((long) (pageData[position++] & 0xFF) << 32)
+                | ((long) (pageData[position++] & 0xFF) << 24)
+                | ((long) (pageData[position++] & 0xFF) << 16)
+                | ((long) (pageData[position++] & 0xFF) <<  8)
+                | ((long) (pageData[position  ] & 0xFF)      );
 
         return value;
     }
@@ -953,7 +952,7 @@ public class DBPage implements Pinnable, AutoCloseable {
 
         if (bytes.length > len) {
             throw new IllegalArgumentException("value must be " + len +
-                " bytes or less");
+                    " bytes or less");
         }
 
         // This function sets the dirty flag.
@@ -986,46 +985,46 @@ public class DBPage implements Pinnable, AutoCloseable {
 
         switch (colType.getBaseType()) {
 
-        case INTEGER:
-            value = Integer.valueOf(readInt(position));
-            break;
+            case INTEGER:
+                value = Integer.valueOf(readInt(position));
+                break;
 
-        case SMALLINT:
-            value = Short.valueOf(readShort(position));
-            break;
+            case SMALLINT:
+                value = Short.valueOf(readShort(position));
+                break;
 
-        case BIGINT:
-            value = Long.valueOf(readLong(position));
-            break;
+            case BIGINT:
+                value = Long.valueOf(readLong(position));
+                break;
 
-        case TINYINT:
-            value = Byte.valueOf(readByte(position));
-            break;
+            case TINYINT:
+                value = Byte.valueOf(readByte(position));
+                break;
 
-        case FLOAT:
-            value = Float.valueOf(readFloat(position));
-            break;
+            case FLOAT:
+                value = Float.valueOf(readFloat(position));
+                break;
 
-        case DOUBLE:
-            value = Double.valueOf(readDouble(position));
-            break;
+            case DOUBLE:
+                value = Double.valueOf(readDouble(position));
+                break;
 
-        case CHAR:
-            value = readFixedSizeString(position, colType.getLength());
-            break;
+            case CHAR:
+                value = readFixedSizeString(position, colType.getLength());
+                break;
 
-        case VARCHAR:
-            value = readVarString65535(position);
-            break;
+            case VARCHAR:
+                value = readVarString65535(position);
+                break;
 
-        case FILE_POINTER:
-            value = new FilePointer(readUnsignedShort(position),
-                                    readUnsignedShort(position + 2));
-            break;
+            case FILE_POINTER:
+                value = new FilePointer(readUnsignedShort(position),
+                        readUnsignedShort(position + 2));
+                break;
 
-        default:
-            throw new UnsupportedOperationException(
-                "Cannot currently read type " + colType.getBaseType());
+            default:
+                throw new UnsupportedOperationException(
+                        "Cannot currently read type " + colType.getBaseType());
         }
 
         return value;
@@ -1066,7 +1065,7 @@ public class DBPage implements Pinnable, AutoCloseable {
         // This code relies on Java autoboxing.  Go, syntactic sugar.
         switch (colType.getBaseType()) {
 
-        case INTEGER:
+            case INTEGER:
             {
                 int iVal = TypeConverter.getIntegerValue(value);
                 writeInt(position, iVal);
@@ -1074,7 +1073,7 @@ public class DBPage implements Pinnable, AutoCloseable {
                 break;
             }
 
-        case SMALLINT:
+            case SMALLINT:
             {
                 short sVal = TypeConverter.getShortValue(value);
                 writeShort(position, sVal);
@@ -1082,7 +1081,7 @@ public class DBPage implements Pinnable, AutoCloseable {
                 break;
             }
 
-        case BIGINT:
+            case BIGINT:
             {
                 long lVal = TypeConverter.getLongValue(value);
                 writeLong(position, lVal);
@@ -1090,7 +1089,7 @@ public class DBPage implements Pinnable, AutoCloseable {
                 break;
             }
 
-        case TINYINT:
+            case TINYINT:
             {
                 byte bVal = TypeConverter.getByteValue(value);
                 writeByte(position, bVal);
@@ -1098,7 +1097,7 @@ public class DBPage implements Pinnable, AutoCloseable {
                 break;
             }
 
-        case FLOAT:
+            case FLOAT:
             {
                 float fVal = TypeConverter.getFloatValue(value);
                 writeFloat(position, fVal);
@@ -1106,7 +1105,7 @@ public class DBPage implements Pinnable, AutoCloseable {
                 break;
             }
 
-        case DOUBLE:
+            case DOUBLE:
             {
                 double dVal = TypeConverter.getDoubleValue(value);
                 writeDouble(position, dVal);
@@ -1114,7 +1113,7 @@ public class DBPage implements Pinnable, AutoCloseable {
                 break;
             }
 
-        case CHAR:
+            case CHAR:
             {
                 String strVal = TypeConverter.getStringValue(value);
                 writeFixedSizeString(position, strVal, colType.getLength());
@@ -1122,7 +1121,7 @@ public class DBPage implements Pinnable, AutoCloseable {
                 break;
             }
 
-        case VARCHAR:
+            case VARCHAR:
             {
                 String strVal = TypeConverter.getStringValue(value);
                 writeVarString65535(position, strVal);
@@ -1130,7 +1129,7 @@ public class DBPage implements Pinnable, AutoCloseable {
                 break;
             }
 
-        case FILE_POINTER:
+            case FILE_POINTER:
             {
                 FilePointer fptr = (FilePointer) value;
                 writeShort(position, fptr.getPageNo());
@@ -1139,9 +1138,9 @@ public class DBPage implements Pinnable, AutoCloseable {
                 break;
             }
 
-        default:
-            throw new UnsupportedOperationException(
-                "Cannot currently store type " + colType.getBaseType());
+            default:
+                throw new UnsupportedOperationException(
+                        "Cannot currently store type " + colType.getBaseType());
         }
 
         return dataSize;
@@ -1151,8 +1150,8 @@ public class DBPage implements Pinnable, AutoCloseable {
     @Override
     public String toString() {
         return String.format(
-            "DBPage[file=%s, pageNo=%d, pageSize=%d, dirty=%s, pageLSN=%s]",
-            dbFile, pageNo, dbFile.getPageSize(), dirty, pageLSN);
+                "DBPage[file=%s, pageNo=%d, pageSize=%d, dirty=%s, pageLSN=%s]",
+                dbFile, pageNo, dbFile.getPageSize(), dirty, pageLSN);
     }
 
 
@@ -1161,8 +1160,8 @@ public class DBPage implements Pinnable, AutoCloseable {
 
         int pageSize = dbFile.getPageSize();
         buf.append(String.format(
-            "DBPage[file=%s, pageNo=%d, pageSize=%d, dirty=%s, pageLSN=%s",
-            dbFile, pageNo, pageSize, dirty, pageLSN));
+                "DBPage[file=%s, pageNo=%d, pageSize=%d, dirty=%s, pageLSN=%s",
+                dbFile, pageNo, pageSize, dirty, pageLSN));
 
         buf.append("\npageData =");
         for (int i = 0; i < pageSize; i++) {
