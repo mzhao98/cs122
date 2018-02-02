@@ -228,6 +228,9 @@ public class FileScanNode extends SelectNode {
         ArrayList<ColumnStats> fileStats = tableStats.getAllColumnStats();
 
         // Get the cost of the plan node!
+
+        // The cost here is just the cost of the table we are scanning through
+        // with the statistics of the table.
         cost = new PlanCost(tableStats.numTuples, tableStats.avgTupleSize,
                 tableStats.numTuples, tableStats.numDataPages);
 

@@ -183,22 +183,38 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
         // Use the parent class' helper-function to prepare the schema.
         prepareSchemaStats();
 
+        // get the costs of the children
         PlanCost rightCost = rightChild.cost;
         PlanCost leftCost = leftChild.cost;
 
+        // initialize a selectivity and scale value
         float selectivity = 1;
+
+        // scale is 1 if we don't have a predicate, 2 otherwise
         float scale = 1;
 
+        // if there is a predicate, then we can calculate our selectivity
+        // any time we calculate selectivity, our cost is going to look at
+        // this many tuples again, so we can double our scale
         if(predicate != null) {
             selectivity = SelectivityEstimator.estimateSelectivity(predicate,
                     schema, stats);
             scale = 2;
         }
+
+        // now set our cost as our scale times the product of the number
+        // of tuples our children have
         float cpuCost = scale * leftCost.numTuples * rightCost.numTuples;
+
+        // our number of tuples is just the selectivity times the product
         float numTups = selectivity * (leftCost.numTuples * rightCost.numTuples);
+
+        // blockIOs and size are the sum of the child values
         long blockIOs = rightCost.numBlockIOs + leftCost.numBlockIOs;
         float tupleLen = rightCost.tupleSize + leftCost.tupleSize;
 
+        // if we have an outer join, we also need to add the number of tuples
+        // of our left (or swapped right) child
         if(joinType == JoinType.LEFT_OUTER || joinType == JoinType.RIGHT_OUTER)
         {
             numTups += leftCost.numTuples;
@@ -266,7 +282,7 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
             // If both tuples are null then we initialize and if both tables
             // are not empty then we return true.
             if (leftTuple == null && rightTuple == null){
-                logger.warn("Initialize");
+                // logger.warn("Initialize");
                 leftTuple = leftChild.getNextTuple();
                 rightTuple = rightChild.getNextTuple();
                 if (leftTuple != null && rightTuple != null) {

@@ -125,9 +125,6 @@ public class SimplePlanner extends AbstractPlannerImpl {
             }
 
             // compute the plan by joining
-//            PlanNode childNode = computeJoinClauses(fromClause, enclosingSelects);
-//            plan = new RenameNode(childNode, fromClause.getResultName());
-
             plan = computeJoinClauses(fromClause, enclosingSelects);
             // logger.warn("return");
 
