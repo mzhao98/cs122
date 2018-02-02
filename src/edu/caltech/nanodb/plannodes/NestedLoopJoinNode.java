@@ -187,12 +187,15 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
         PlanCost leftCost = leftChild.cost;
 
         float selectivity = 1;
+        float scale = 1;
+
         if(predicate != null) {
             selectivity = SelectivityEstimator.estimateSelectivity(predicate,
                     schema, stats);
+            scale = 2;
         }
-        float cpuCost = leftCost.numTuples * rightCost.numTuples;
-        float numTups = selectivity * (cpuCost);
+        float cpuCost = scale * leftCost.numTuples * rightCost.numTuples;
+        float numTups = selectivity * (leftCost.numTuples * rightCost.numTuples);
         long blockIOs = rightCost.numBlockIOs + leftCost.numBlockIOs;
         float tupleLen = rightCost.tupleSize + leftCost.tupleSize;
 
@@ -259,7 +262,7 @@ public class NestedLoopJoinNode extends ThetaJoinNode {
      */
     private boolean getTuplesToJoin() throws IOException {
 
-        if (joinType == JoinType.INNER){
+        if (joinType == JoinType.INNER || joinType == JoinType.CROSS){
             // If both tuples are null then we initialize and if both tables
             // are not empty then we return true.
             if (leftTuple == null && rightTuple == null){

@@ -122,7 +122,7 @@ public class SimpleFilterNode extends SelectNode {
 
             float selectivity = SelectivityEstimator.estimateSelectivity(predicate, schema, childStats);
 
-            cost.cpuCost += cost.numTuples;
+            cost.cpuCost += childCost.numTuples;
             cost.numTuples *= selectivity;
         }
         else {
