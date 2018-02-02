@@ -288,7 +288,6 @@ public class SelectivityEstimator {
             }
 
             break;
-
         case GREATER_OR_EQUAL:
         case LESS_THAN:
             // Compute the greater-or-equal value.  Then, if less-than,
@@ -401,13 +400,13 @@ public class SelectivityEstimator {
             if (compType == CompareOperator.Type.EQUALS || compType == CompareOperator.Type.NOT_EQUALS){
 
                 if (colOneStats.getNumUniqueValues() > colTwoStats.getNumUniqueValues()){
-                    selectivity = 1/colOneStats.getNumUniqueValues();
+                    selectivity = (float) 1/colOneStats.getNumUniqueValues();
                 }
                 else{
-                    selectivity = 1/colTwoStats.getNumUniqueValues();
+                    selectivity = (float) 1/colTwoStats.getNumUniqueValues();
                 }
                 if(compType == CompareOperator.Type.NOT_EQUALS){
-                    selectivity = 1 - selectivity;
+                    selectivity = (float) 1 - selectivity;
                 }
             }
         }
