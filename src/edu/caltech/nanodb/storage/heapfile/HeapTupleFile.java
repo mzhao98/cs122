@@ -430,10 +430,12 @@ public class HeapTupleFile implements TupleFile {
 
     @Override
     public void analyze() throws IOException {
+        // Initialize variables to collect table stats
         int numTuples = 0;
         int totalTupleSize = 0;
         float avgTupleSize = 0;
         int numColumns = schema.numColumns();
+        // Create a ColumnStatsCollector for use at the end to create the ColumnStats object
         ColumnStatsCollector[] columnStatsCollector = new ColumnStatsCollector[numColumns];
         for (int i = 0; i < numColumns; i++) {
             SQLDataType dataType = schema.getColumnInfo(i).getType().getBaseType();
@@ -441,6 +443,7 @@ public class HeapTupleFile implements TupleFile {
         }
         HeapFilePageTuple tupleFile = null;
 
+        // Iterate through the pages of the table
         int pageNo = 1;
         DBPage dbPage;
         while (true) {
@@ -455,6 +458,7 @@ public class HeapTupleFile implements TupleFile {
                 break;
             }
 
+            // Add the total tuple size of the page to the overall total
             totalTupleSize += DataPage.getTupleDataEnd(dbPage) - DataPage.getTupleDataStart(dbPage);
 
             // Scan through the data pages until we hit the end of the table
@@ -470,12 +474,11 @@ public class HeapTupleFile implements TupleFile {
                 if (offset == DataPage.EMPTY_SLOT)
                     continue;
 
-                // This is the first tuple in the file.  Build up the
-                // HeapFilePageTuple object and return it.
                 tupleFile = new HeapFilePageTuple(schema, dbPage, iSlot, offset);
 
                 numTuples += 1;
 
+                // Collect column-by-column data in the collector
                 for (int i = 0; i < numColumns; i++) {
                     columnStatsCollector[i].addValue(tupleFile.getColumnValue(i));
                 }
@@ -483,17 +486,22 @@ public class HeapTupleFile implements TupleFile {
             pageNo++;
         }
 
+        // Account for not counting the header page
         int numDataPages = pageNo - 1;
+
+        // If we have tuples then calculate average size
         if (numTuples > 0) {
             avgTupleSize = (float) totalTupleSize / numTuples;
         }
 
+        // Create a columnStats object using the collector
         ArrayList<ColumnStats> columnStats = new ArrayList<>(numColumns);
 
         for (int i = 0; i < numColumns; i++) {
             columnStats.add(columnStatsCollector[i].getColumnStats());
         }
 
+        // Create a new TableStats object, set the TupleFile's stats to it, and save the metadata
         TableStats tableStats = new TableStats(numDataPages, numTuples, avgTupleSize, columnStats);
         this.stats = tableStats;
         heapFileManager.saveMetadata(this);

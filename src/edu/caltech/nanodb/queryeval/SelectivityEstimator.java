@@ -150,12 +150,14 @@ public class SelectivityEstimator {
 
         switch (bool.getType()) {
         case AND_EXPR:
+            // Iterate through the terms of the BooleanOperator and compute the conjunctive selectivity
             for (int i = 0; i < bool.getNumTerms(); i++) {
                 selectivity *= estimateSelectivity(bool.getTerm(i), exprSchema, stats);
             }
             break;
 
         case OR_EXPR:
+            // Iterate through the terms of the BooleanOperator and compute the disjunctive selectivity
             float orVal = 1.0f;
             for (int i = 0; i < bool.getNumTerms(); i++) {
                 orVal *= 1.0f - estimateSelectivity(bool.getTerm(i), exprSchema, stats);
@@ -164,6 +166,7 @@ public class SelectivityEstimator {
             break;
 
         case NOT_EXPR:
+            // Calculate the complement of the selectivity since the operator is NOT
             selectivity = 1.0f - estimateSelectivity(bool.getTerm(0), exprSchema, stats);
             break;
 
@@ -269,6 +272,7 @@ public class SelectivityEstimator {
         SQLDataType sqlType = colInfo.getType().getBaseType();
         ColumnStats colStats = stats.get(colIndex);
 
+        // Create comparable objects for use in
         Object value = literalValue.evaluate();
         Comparable comparable = (Comparable) value;
         Comparable minValue = (Comparable) colStats.getMinValue();
@@ -280,6 +284,9 @@ public class SelectivityEstimator {
             // Compute the equality value.  Then, if inequality, invert the
             // result.
 
+            // If we know the number of unique values then calculate
+            // selectivity using an assumed uniform distribution of
+            // values.
             if (colStats.getNumUniqueValues() != -1) {
                 selectivity = 1.0f / colStats.getNumUniqueValues();
                 if (compType == CompareOperator.Type.NOT_EQUALS) {
@@ -299,19 +306,23 @@ public class SelectivityEstimator {
             if (typeSupportsCompareEstimates(sqlType) &&
                 colStats.hasDifferentMinMaxValues()) {
 
+                // If the literal is less than the min then we select all rows
                 if (comparable.compareTo(minValue) < 0) {
                     selectivity = 1.0f;
                 }
 
+                // If the literal is greater than the max then we select no rows
                 else if (comparable.compareTo(maxValue) > 0) {
                     selectivity = 0.0f;
                 }
 
+                // Otherwise compute selectivity using the ratio function
                 else {
                     selectivity = computeRatio(value, colStats.getMaxValue(),
                             colStats.getMinValue(), colStats.getMaxValue());
                 }
 
+                // Invert the result if less-than
                 if (compType == CompareOperator.Type.LESS_THAN) {
                     selectivity = 1.0f - selectivity;
                 }
@@ -330,19 +341,25 @@ public class SelectivityEstimator {
             if (typeSupportsCompareEstimates(sqlType) &&
                 colStats.hasDifferentMinMaxValues()) {
 
+                // If the literal is less than the min then we
+                // would select no rows
                 if (comparable.compareTo(minValue) < 0) {
                     selectivity = 0.0f;
                 }
 
+                // If the literal is greater than the max then we
+                // select all row
                 else if (comparable.compareTo(maxValue) > 0) {
                     selectivity = 1.0f;
                 }
 
+                // Otherwise compute selectivity using the ratio function
                 else {
                     selectivity = computeRatio(colStats.getMinValue(), value,
                             colStats.getMinValue(), colStats.getMaxValue());
                 }
 
+                // Invert the result if greater-than
                 if (compType == CompareOperator.Type.GREATER_THAN) {
                     selectivity = 1.0f - selectivity;
                 }
@@ -392,11 +409,18 @@ public class SelectivityEstimator {
 
         ColumnStats colOneStats = stats.get(colOneIndex);
         ColumnStats colTwoStats = stats.get(colTwoIndex);
-        
-        if(colOneStats.getNumUniqueValues() != -1 && colTwoStats.getNumUniqueValues() != -1){
-            if (compType == CompareOperator.Type.EQUALS || compType == CompareOperator.Type.NOT_EQUALS){
 
-                if (colOneStats.getNumUniqueValues() > colTwoStats.getNumUniqueValues()){
+        // If we know the number of unique values for both columns and the
+        // operator is equals or not_equals then calculate selectivity
+        // as 1 over max(Unique(A,r),Unique(A,s)), e.g. whichever column
+        // has more unique values. Invert the result if inequality
+        if(colOneStats.getNumUniqueValues() != -1 &&
+                colTwoStats.getNumUniqueValues() != -1){
+            if (compType == CompareOperator.Type.EQUALS ||
+                    compType == CompareOperator.Type.NOT_EQUALS){
+
+                if (colOneStats.getNumUniqueValues() >
+                        colTwoStats.getNumUniqueValues()){
                     selectivity = 1.0f / colOneStats.getNumUniqueValues();
                 }
                 else{
