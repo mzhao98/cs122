@@ -461,13 +461,9 @@ public class HeapTupleFile implements TupleFile {
             // file.  It may be that the first run of data pages is empty,
             // so just keep looking until we hit the end of the file.
 
-            // Header page is page 0, so first data page is page 1.
-            // page_scan:  // So we can break out of the outer loop from inside the inner one
-                // Look for data on this page.
+            // Look for data on this page.
             int numSlots = DataPage.getNumSlots(dbPage);
             for (int iSlot = 0; iSlot < numSlots; iSlot++) {
-                // System.out.println("numTuples: " + numTuples);
-                // System.out.println("totalTupleSize: " + totalTupleSize);
                 // Get the offset of the tuple in the page.  If it's 0 then
                 // the slot is empty, and we skip to the next slot.
                 int offset = DataPage.getSlotValue(dbPage, iSlot);
@@ -478,15 +474,12 @@ public class HeapTupleFile implements TupleFile {
                 // HeapFilePageTuple object and return it.
                 tupleFile = new HeapFilePageTuple(schema, dbPage, iSlot, offset);
 
-                // System.out.println("tupleSize: " + tupleFile.getSize());
-
                 numTuples += 1;
 
                 for (int i = 0; i < numColumns; i++) {
                     columnStatsCollector[i].addValue(tupleFile.getColumnValue(i));
                 }
             }
-
             pageNo++;
         }
 
@@ -504,7 +497,6 @@ public class HeapTupleFile implements TupleFile {
         TableStats tableStats = new TableStats(numDataPages, numTuples, avgTupleSize, columnStats);
         this.stats = tableStats;
         heapFileManager.saveMetadata(this);
-        // throw new UnsupportedOperationException("Not yet implemented!");
     }
 
 

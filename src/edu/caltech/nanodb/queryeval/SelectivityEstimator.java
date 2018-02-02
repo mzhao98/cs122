@@ -158,13 +158,13 @@ public class SelectivityEstimator {
         case OR_EXPR:
             float orVal = 1.0f;
             for (int i = 0; i < bool.getNumTerms(); i++) {
-                orVal *= 1 - estimateSelectivity(bool.getTerm(i), exprSchema, stats);
+                orVal *= 1.0f - estimateSelectivity(bool.getTerm(i), exprSchema, stats);
             }
             selectivity = selectivity - orVal;
             break;
 
         case NOT_EXPR:
-            selectivity = 1 - estimateSelectivity(bool.getTerm(0), exprSchema, stats);
+            selectivity = 1.0f - estimateSelectivity(bool.getTerm(0), exprSchema, stats);
             break;
 
         default:
@@ -281,9 +281,9 @@ public class SelectivityEstimator {
             // result.
 
             if (colStats.getNumUniqueValues() != -1) {
-                selectivity = 1 / colStats.getNumUniqueValues();
+                selectivity = 1.0f / colStats.getNumUniqueValues();
                 if (compType == CompareOperator.Type.NOT_EQUALS) {
-                    selectivity = 1 - selectivity;
+                    selectivity = 1.0f - selectivity;
                 }
             }
 
@@ -300,11 +300,11 @@ public class SelectivityEstimator {
                 colStats.hasDifferentMinMaxValues()) {
 
                 if (comparable.compareTo(minValue) < 0) {
-                    selectivity = 1;
+                    selectivity = 1.0f;
                 }
 
                 else if (comparable.compareTo(maxValue) > 0) {
-                    selectivity = 0;
+                    selectivity = 0.0f;
                 }
 
                 else {
@@ -313,7 +313,7 @@ public class SelectivityEstimator {
                 }
 
                 if (compType == CompareOperator.Type.LESS_THAN) {
-                    selectivity = 1 - selectivity;
+                    selectivity = 1.0f - selectivity;
                 }
             }
 
@@ -329,25 +329,22 @@ public class SelectivityEstimator {
 
             if (typeSupportsCompareEstimates(sqlType) &&
                 colStats.hasDifferentMinMaxValues()) {
-                if (typeSupportsCompareEstimates(sqlType) &&
-                        colStats.hasDifferentMinMaxValues()) {
 
-                    if (comparable.compareTo(minValue) < 0) {
-                        selectivity = 0;
-                    }
+                if (comparable.compareTo(minValue) < 0) {
+                    selectivity = 0.0f;
+                }
 
-                    else if (comparable.compareTo(maxValue) > 0) {
-                        selectivity = 1;
-                    }
+                else if (comparable.compareTo(maxValue) > 0) {
+                    selectivity = 1.0f;
+                }
 
-                    else {
-                        selectivity = computeRatio(colStats.getMinValue(), value,
-                                colStats.getMinValue(), colStats.getMaxValue());
-                    }
+                else {
+                    selectivity = computeRatio(colStats.getMinValue(), value,
+                            colStats.getMinValue(), colStats.getMaxValue());
+                }
 
-                    if (compType == CompareOperator.Type.GREATER_THAN) {
-                        selectivity = 1 - selectivity;
-                    }
+                if (compType == CompareOperator.Type.GREATER_THAN) {
+                    selectivity = 1.0f - selectivity;
                 }
             }
 
@@ -400,13 +397,13 @@ public class SelectivityEstimator {
             if (compType == CompareOperator.Type.EQUALS || compType == CompareOperator.Type.NOT_EQUALS){
 
                 if (colOneStats.getNumUniqueValues() > colTwoStats.getNumUniqueValues()){
-                    selectivity = (float) 1/colOneStats.getNumUniqueValues();
+                    selectivity = 1.0f / colOneStats.getNumUniqueValues();
                 }
                 else{
-                    selectivity = (float) 1/colTwoStats.getNumUniqueValues();
+                    selectivity = 1.0f / colTwoStats.getNumUniqueValues();
                 }
                 if(compType == CompareOperator.Type.NOT_EQUALS){
-                    selectivity = (float) 1 - selectivity;
+                    selectivity = 1.0f - selectivity;
                 }
             }
         }
