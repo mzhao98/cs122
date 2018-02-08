@@ -11,12 +11,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import edu.caltech.nanodb.expressions.PredicateUtils;
+import edu.caltech.nanodb.plannodes.*;
 import org.apache.log4j.Logger;
 
 import edu.caltech.nanodb.expressions.Expression;
-import edu.caltech.nanodb.plannodes.FileScanNode;
-import edu.caltech.nanodb.plannodes.PlanNode;
-import edu.caltech.nanodb.plannodes.SelectNode;
 import edu.caltech.nanodb.queryast.FromClause;
 import edu.caltech.nanodb.queryast.SelectClause;
 import edu.caltech.nanodb.relations.TableInfo;
@@ -123,8 +122,6 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
      */
     public PlanNode makePlan(SelectClause selClause,
         List<SelectClause> enclosingSelects) throws IOException {
-
-        // TODO:  Implement!
         //
         // This is a very rough sketch of how this function will work,
         // focusing mainly on join planning:
@@ -312,7 +309,88 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
         //        joins first, then focus on outer joins once you have the
         //        typical cases supported.
 
-        return null;
+
+        // figure out if we need to rename
+        PlanNode leafPlan = null;
+
+        if(fromClause.isBaseTable())
+        {
+            Expression predicate = PredicateUtils.makePredicate(conjuncts);
+            leafPlan = makeSimpleSelect(fromClause.getTableName(), predicate, null);
+        }
+
+        else if(fromClause.isDerivedTable())
+        {
+            // call make leaf plan
+            // leafPlan = makePlan(fromClause.getSelectClause(), null);
+            PlanNode child = makeLeafPlan(fromClause.getSelectClause().getFromClause(), conjuncts, leafConjuncts);
+            leafPlan = new RenameNode(child, fromClause.getResultName());
+        }
+
+        else if(fromClause.isOuterJoin())
+        {
+            // first, test equivalency on left:
+            PlanNode join = null;
+
+            if(fromClause.hasOuterJoinOnLeft() || fromClause.hasOuterJoinOnRight())
+            {
+
+                HashSet<Expression> left = new HashSet<>();
+                PredicateUtils.findExprsUsingSchemas(conjuncts, false, left,
+                        fromClause.getLeftChild().getSchema());
+
+                HashSet<Expression> right = new HashSet<>();
+                PredicateUtils.findExprsUsingSchemas(conjuncts, false, right,
+                        fromClause.getRightChild().getSchema());
+
+                // only things in the left are passed down
+                if(left.equals(conjuncts))
+                {
+                    JoinComponent jc1 = makeJoinPlan(fromClause.getLeftChild(), conjuncts);
+                    JoinComponent jc2 = makeJoinPlan(fromClause.getRightChild(), null);
+                    join = new NestedLoopJoinNode(jc1.joinPlan, jc2.joinPlan, fromClause.getJoinType(), null);
+                }
+                // only things in right are passed down
+                else if(right.equals(conjuncts))
+                {
+                    JoinComponent jc1 = makeJoinPlan(fromClause.getLeftChild(), null);
+                    JoinComponent jc2 = makeJoinPlan(fromClause.getRightChild(), conjuncts);
+                    join = new NestedLoopJoinNode(jc1.joinPlan, jc2.joinPlan, fromClause.getJoinType(), null);
+                }
+                else
+                {
+                    JoinComponent jc1 = makeJoinPlan(fromClause.getLeftChild(), null);
+                    JoinComponent jc2 = makeJoinPlan(fromClause.getRightChild(), null);
+                    join = new NestedLoopJoinNode(jc1.joinPlan, jc2.joinPlan, fromClause.getJoinType(), fromClause.getOnExpression());
+                }
+
+
+            }
+
+            // we have another case, but not really
+            // else
+            // {
+            //     JoinComponent jc1 = makeJoinPlan(fromClause.getLeftChild(), null);
+            //     JoinComponent jc2 = makeJoinPlan(fromClause.getRightChild(), null);
+            //    join = new NestedLoopJoinNode(jc1.joinPlan, jc2.joinPlan, fromClause.getJoinType(), fromClause.getOnExpression());
+            //
+            // }
+
+            leafPlan = join;
+
+        }
+
+        leafPlan.prepare();
+
+        HashSet<Expression> used = new HashSet<>();
+        PredicateUtils.findExprsUsingSchemas(conjuncts, false, used,
+                leafPlan.getSchema());
+
+        Expression pred = PredicateUtils.makePredicate(used);
+        PlanUtils.addPredicateToPlan(leafPlan, pred);
+
+        leafPlan.prepare();
+        return leafPlan;
     }
 
 
