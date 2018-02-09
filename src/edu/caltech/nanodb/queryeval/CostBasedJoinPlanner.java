@@ -11,8 +11,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import edu.caltech.nanodb.expressions.AggregateProcessor;
 import edu.caltech.nanodb.expressions.PredicateUtils;
 import edu.caltech.nanodb.plannodes.*;
+import edu.caltech.nanodb.queryast.SelectValue;
 import edu.caltech.nanodb.relations.JoinType;
 import org.apache.log4j.Logger;
 
@@ -146,7 +148,117 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
         // various kinds of subqueries, queries without a FROM clause, etc.,
         // can all be incorporated into this sketch relatively easily.
 
-        return null;
+
+        // how to do the where clause
+        // how to find and what to do with unused conjuncts
+        // handling project plan nodes
+        // handling other cases the same way
+
+        // Process the aggregate commands.
+        if (enclosingSelects != null && !enclosingSelects.isEmpty()) {
+            throw new UnsupportedOperationException(
+                    "Not implemented:  enclosing queries");
+        }
+
+        // Traverse and process the select values to search for any aggregate
+        // functions.
+        List<SelectValue> selectValues = selClause.getSelectValues();
+        AggregateProcessor processor = new AggregateProcessor();
+        boolean hasAgg = false;
+
+        for (SelectValue sv : selectValues) {
+            // Skip select-values that aren't expressions
+            if (!sv.isExpression()){
+                continue;
+            }
+            Expression e = sv.getExpression().traverse(processor);
+            sv.setExpression(e);
+            // Raise hasAggregate flag if we've encountered an aggregate function.
+            if (e.toString().contains("aggrfn")){
+                hasAgg = true;
+            }
+        }
+
+
+        FromClause fromClause = selClause.getFromClause();
+
+        // if no from clause
+        if(fromClause == null)
+        {
+            // can use a project here
+            ProjectNode projectNode = new ProjectNode(selClause.getSelectValues());
+            // logger.warn(String.format("project %s", projectNode.toString()));
+
+            projectNode.prepare();
+
+            return projectNode;
+
+        }
+
+        HashSet<Expression> whereConjuncts = new HashSet<>();
+
+        // first we get the details from where and having
+        if(selClause.getWhereExpr() != null)
+        {
+            // check if aggregates in the where clause
+            Expression onEx = selClause.getWhereExpr().traverse(processor);
+            if (onEx.toString().contains("aggrfn")) {
+                throw new IllegalArgumentException("WHERE clause can't have aggregate functions");
+            }
+
+            PredicateUtils.collectConjuncts(selClause.getWhereExpr(), whereConjuncts);
+        }
+
+        PlanNode plan;
+
+        // now make the join plan
+        JoinComponent joinComponent = makeJoinPlan(fromClause, whereConjuncts);
+        // PredicateUtils.collectConjuncts(fromClause);
+
+
+        // get the unused conjuncts - see if there is a better way to do this
+//        HashSet<Expression> conjuncts = new HashSet<>();
+//        ArrayList<FromClause> leafFromClauses = new ArrayList<>();
+//
+//        collectDetails(fromClause, conjuncts, leafFromClauses);
+
+        plan = joinComponent.joinPlan;
+
+        // handles the unused conjuncts in the where clause
+        whereConjuncts.removeAll(joinComponent.conjunctsUsed);
+        if(!whereConjuncts.isEmpty())
+        {
+            Expression pred = PredicateUtils.makePredicate(whereConjuncts);
+            PlanUtils.addPredicateToPlan(plan, pred);
+        }
+
+        // grouping and aggregation
+        if(hasAgg || selClause.getGroupByExprs().size() > 0) {
+            PlanNode aggNode = plan;
+            plan = new HashedGroupAggregateNode(aggNode,
+                    selClause.getGroupByExprs(), processor.getAggregates());
+            plan.prepare();
+        }
+
+        // then make the projects
+        if(!selClause.isTrivialProject())
+        {
+            PlanNode oldPlan = plan;
+            plan = new ProjectNode(oldPlan, selClause.getSelectValues());
+            plan.prepare();
+        }
+
+        // now we order by
+        if(selClause.getOrderByExprs().size() > 0)
+        {
+            logger.warn("order by");
+            PlanNode sNode = plan;
+            plan = new SortNode(sNode, selClause.getOrderByExprs());
+            plan.prepare();
+        }
+
+
+        return plan;
     }
 
 
@@ -359,7 +471,8 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
         {
             // call make leaf plan
             // leafPlan = makePlan(fromClause.getSelectClause(), null);
-            PlanNode child = makeLeafPlan(fromClause.getSelectClause().getFromClause(), conjuncts, leafConjuncts);
+
+            PlanNode child = makePlan(fromClause.getSelectClause(), null);
             leafPlan = new RenameNode(child, fromClause.getResultName());
         }
 
@@ -397,7 +510,8 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
                 {
                     JoinComponent jc1 = makeJoinPlan(fromClause.getLeftChild(), null);
                     JoinComponent jc2 = makeJoinPlan(fromClause.getRightChild(), null);
-                    join = new NestedLoopJoinNode(jc1.joinPlan, jc2.joinPlan, fromClause.getJoinType(), fromClause.getOnExpression());
+                    join = new NestedLoopJoinNode(jc1.joinPlan, jc2.joinPlan,
+                            fromClause.getJoinType(), fromClause.getOnExpression());
                 }
 
 
@@ -408,7 +522,8 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
             // {
             //     JoinComponent jc1 = makeJoinPlan(fromClause.getLeftChild(), null);
             //     JoinComponent jc2 = makeJoinPlan(fromClause.getRightChild(), null);
-            //    join = new NestedLoopJoinNode(jc1.joinPlan, jc2.joinPlan, fromClause.getJoinType(), fromClause.getOnExpression());
+            //    join = new NestedLoopJoinNode(jc1.joinPlan, jc2.joinPlan, fromClause.getJoinType(),
+            // fromClause.getOnExpression());
             //
             // }
 
