@@ -745,25 +745,10 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
 
                     // If nextJoinPlans already contains a plan with all leaves in nextJoinPlans,
                     // compare the cost of the new plan to the current best plan in nextJoinPlans.
+
                     if(nextJoinPlans.containsKey(combinedLeaves)){
-                        float min = Float.MAX_VALUE;
-                        for (JoinComponent checkPlan: nextJoinPlans.values()){
-                            if(checkPlan.joinPlan.getCost().cpuCost < min){
-                                min = checkPlan.joinPlan.getCost().cpuCost;
-                            }
-                        }
-                        // If the newCost is the minimum, making this new plan the best plan so far,
-                        // replace current plan with new plan in nextJoinPlans.
-                        if(newCost < min){
-                            for (JoinComponent checkPlan: nextJoinPlans.values()){
-                                if (checkPlan.joinPlan.getCost().cpuCost == min){
-                                    nextJoinPlans.replace(combinedLeaves, newPlanComponent);
-                                    logger.warn(String.format("new are %s", newPlanComponent.conjunctsUsed));
-                                    logger.warn(String.format("OLD are %s", checkPlan.conjunctsUsed));
-
-                                }
-                            }
-
+                        if (newCost < nextJoinPlans.get(combinedLeaves).joinPlan.getCost().cpuCost){
+                            nextJoinPlans.replace(combinedLeaves, newPlanComponent);
                         }
                     }
                     // If nextJoinPlans already contains a plan with all leaves in nextJoinPlans,
@@ -771,6 +756,8 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
                     else{
                         nextJoinPlans.put(combinedLeaves, newPlanComponent);
                     }
+
+
                 }
             }
 
