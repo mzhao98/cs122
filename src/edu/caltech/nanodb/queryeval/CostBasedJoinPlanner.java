@@ -375,16 +375,16 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
         // If fromClause is a derived table, add it to leafFromClauses and recursively
         // call collectDetails on the selectClause.
         if (fromClause.isDerivedTable()) {
-            // leafFromClauses.add(fromClause);
-            collectDetails(fromClause.getSelectClause().getFromClause(), conjuncts, leafFromClauses);
+            leafFromClauses.add(fromClause);
+            // collectDetails(fromClause.getSelectClause().getFromClause(), conjuncts, leafFromClauses);
 
         }
         // If fromClause is an outer join table, add it to leafFromClauses and recursively
         // call collectDetails on the left and right children.
         else if(fromClause.isOuterJoin()) {
-            // leafFromClauses.add(fromClause);
-            collectDetails(fromClause.getLeftChild(), conjuncts, leafFromClauses);
-            collectDetails(fromClause.getRightChild(), conjuncts, leafFromClauses);
+            leafFromClauses.add(fromClause);
+            // collectDetails(fromClause.getLeftChild(), conjuncts, leafFromClauses);
+            // collectDetails(fromClause.getRightChild(), conjuncts, leafFromClauses);
         }
         // Else if, fromClause is an inner join table, collect conjuncts from the predicates
         // that appear in this non-leaf fromClause and recursively
@@ -571,9 +571,7 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
                 // join on the predicate if it corresponds to left and right
                 // join = new JoinComponent(leafPlan, comps, rightleft);
 
-
-
-                join = new NestedLoopJoinNode(jc1.joinPlan, jc2.joinPlan, fromClause.getJoinType(), pred);
+                join = new NestedLoopJoinNode(jc1.joinPlan, jc2.joinPlan, fromClause.getJoinType(), fromClause.getOnExpression());
                 logger.warn(String.format("Join %s", join));
 
 
@@ -621,7 +619,7 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
                 logger.warn(String.format("On expr pred %s", fromClause.getOnExpression()));
 
 
-                join = new NestedLoopJoinNode(jc1.joinPlan, jc2.joinPlan, fromClause.getJoinType(), pred);
+                join = new NestedLoopJoinNode(jc1.joinPlan, jc2.joinPlan, fromClause.getJoinType(), fromClause.getOnExpression());
                 logger.warn(String.format("Join %s", join));
 
             }
