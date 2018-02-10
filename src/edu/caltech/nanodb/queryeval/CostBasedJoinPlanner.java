@@ -125,10 +125,7 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
     public PlanNode makePlan(SelectClause selClause,
         List<SelectClause> enclosingSelects) throws IOException {
 
-        // TODO:  Implement!
-        //
-        // This is a very rough sketch of how this function will work,
-        // focusing mainly on join planning:
+        // How this function works:
         //
         // 1)  Pull out the top-level conjuncts from the WHERE and HAVING
         //     clauses on the query, since we will handle them in special ways
@@ -145,7 +142,7 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
         //
         // Supporting other query features, such as grouping/aggregation,
         // various kinds of subqueries, queries without a FROM clause, etc.,
-        // can all be incorporated into this sketch relatively easily.
+        // has been incorporated into this sketch.
 
 
         // how to do the where clause
@@ -212,43 +209,40 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
 
         // now make the join plan
 
-        logger.warn("make join plan");
+        // logger.warn("make join plan");
         JoinComponent joinComponent = makeJoinPlan(fromClause, whereConjuncts);
-        logger.warn(String.format("made join plan"));
+        // logger.warn(String.format("made join plan"));
         // PredicateUtils.collectConjuncts(fromClause);
 
 
         // get the unused conjuncts - see if there is a better way to do this
-//        HashSet<Expression> conjuncts = new HashSet<>();
-//        ArrayList<FromClause> leafFromClauses = new ArrayList<>();
-//
-//        collectDetails(fromClause, conjuncts, leafFromClauses);
-        logger.warn(String.format("joining plan"));
+
+        // logger.warn(String.format("joining plan"));
 
         plan = joinComponent.joinPlan;
 
         // handles the unused conjuncts in the where clause
-        logger.warn("got plan");
+        // logger.warn("got plan");
 
-        logger.warn(String.format("whereConjuncts before: %s", whereConjuncts.toString()));
+        // logger.warn(String.format("whereConjuncts before: %s", whereConjuncts.toString()));
         whereConjuncts.removeAll(joinComponent.conjunctsUsed);
-        logger.warn(String.format("whereConjuncts after: %s", whereConjuncts.toString()));
+        // logger.warn(String.format("whereConjuncts after: %s", whereConjuncts.toString()));
 
 
-        logger.warn(String.format("conjuncts used %s", joinComponent.conjunctsUsed));
-        logger.warn("got where conjuncts");
+        // logger.warn(String.format("conjuncts used %s", joinComponent.conjunctsUsed));
+        // logger.warn("got where conjuncts");
         if(!whereConjuncts.isEmpty())
         {
-            logger.warn("where not empty");
+            // logger.warn("where not empty");
             Expression pred = PredicateUtils.makePredicate(whereConjuncts);
 
-            logger.warn(String.format("adding predicates %s", pred));
+            // logger.warn(String.format("adding predicates %s", pred));
 
             PlanUtils.addPredicateToPlan(plan, pred);
-            logger.warn(String.format("added schema %s", plan.getSchema().toString()));
+            // logger.warn(String.format("added schema %s", plan.getSchema().toString()));
             plan.prepare();
         }
-        logger.warn("after where");
+        // logger.warn("after where");
 
         // grouping and aggregation
         if(hasAgg || selClause.getGroupByExprs().size() > 0) {
@@ -262,23 +256,23 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
         // then make the projects
         if(!selClause.isTrivialProject())
         {
-            logger.warn("project");
+            // logger.warn("project");
             PlanNode oldPlan = plan;
             plan = new ProjectNode(oldPlan, selClause.getSelectValues());
             plan.prepare();
-            logger.warn(String.format("projected %s", oldPlan.getSchema()));
+            // logger.warn(String.format("projected %s", oldPlan.getSchema()));
         }
 
         // now we order by
         if(selClause.getOrderByExprs().size() > 0)
         {
-            logger.warn("order by");
+            // logger.warn("order by");
             PlanNode sNode = plan;
             plan = new SortNode(sNode, selClause.getOrderByExprs());
             plan.prepare();
         }
 
-        logger.warn(String.format("returning %s", plan.toString()));
+        // logger.warn(String.format("returning %s", plan.toString()));
 
         return plan;
     }
@@ -428,7 +422,6 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
 
         // Create a subplan for every single leaf FROM-clause, and prepare the
         // leaf-plan.
-        logger.warn(String.format("froms are: %s", leafFromClauses.toString()));
 
         ArrayList<JoinComponent> leafComponents = new ArrayList<>();
         for (FromClause leafClause : leafFromClauses) {
@@ -440,14 +433,18 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
             JoinComponent leaf = new JoinComponent(leafPlan, leafConjuncts);
             leafComponents.add(leaf);
         }
-        logger.warn(String.format("leaves are: %s", leafComponents.toString()));
         return leafComponents;
     }
 
 
     /**
      * Constructs a plan tree for evaluating the specified from-clause.
-     * TODO:  COMPLETE THE DOCUMENTATION
+     *
+     * This method constructs a plan tree for leaf nodes given
+     * leaf from clauses. Taking the nodes that need to be joined, it
+     * determines the type of node that requires a plan, and given this
+     * node, either recursively calls the planner, recursively joins
+     * the children, or returns a base table.
      *
      * @param fromClause the select nodes that need to be joined.
      *
@@ -471,7 +468,6 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
         Collection<Expression> conjuncts, HashSet<Expression> leafConjuncts)
         throws IOException {
 
-        // TODO:  IMPLEMENT.
         //        If you apply any conjuncts then make sure to add them to the
         //        leafConjuncts collection.
         //
@@ -481,7 +477,7 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
         //        joins first, then focus on outer joins once you have the
         //        typical cases supported.
 
-        logger.warn("Making leaf\n\n\n");
+        // logger.warn("Making leaf\n\n\n");
 
         // figure out if we need to rename
         PlanNode leafPlan = null;
@@ -491,10 +487,10 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
             // Expression predicate = PredicateUtils.makePredicate(conjuncts);
             // predicate will be applied at bottom
             PlanNode temp = makeSimpleSelect(fromClause.getTableName(), null, null);
-            logger.warn("base table");
+            // logger.warn("base table");
             if(fromClause.getResultName() != null && !fromClause.getResultName().equals(fromClause.getTableName())) {
                 leafPlan = new RenameNode(temp, fromClause.getResultName());
-                logger.warn(String.format("renamed, %s", fromClause.getResultName()));
+                // logger.warn(String.format("renamed, %s", fromClause.getResultName()));
 
             }
             else
@@ -509,10 +505,10 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
             // call make leaf plan
             // leafPlan = makePlan(fromClause.getSelectClause(), null);
 
-            logger.warn("derived");
+            // logger.warn("derived");
             PlanNode child = makePlan(fromClause.getSelectClause(), null);
             leafPlan = new RenameNode(child, fromClause.getResultName());
-            logger.warn("end recurse");
+            // logger.warn("end recurse");
 
         }
 
@@ -520,11 +516,11 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
         {
             // first, test equivalency on left:
             PlanNode join = null;
-            logger.warn("OUTER JOIN");
+            // logger.warn("OUTER JOIN");
 
             if(fromClause.hasOuterJoinOnLeft())
             {
-                logger.warn("OUTER JOIN L");
+                // logger.warn("OUTER JOIN L");
 
 
                 // we can only pass down stuff on the left
@@ -532,47 +528,43 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
                 PredicateUtils.findExprsUsingSchemas(conjuncts, false, left,
                         fromClause.getLeftChild().getSchema());
 
-                logger.warn(String.format("got left %s", left));
+                // logger.warn(String.format("got left %s", left));
 
                 HashSet<Expression> right = new HashSet<>();
                 PredicateUtils.findExprsUsingSchemas(conjuncts, false, right,
                         fromClause.getRightChild().getSchema());
 
-                logger.warn(String.format("left child %s", fromClause.getLeftChild()));
+                // logger.warn(String.format("left child %s", fromClause.getLeftChild()));
 
                 // pass down stuff on left
                 JoinComponent jc1 = makeJoinPlan(fromClause.getLeftChild(), left);
 
-                logger.warn(String.format("right child %s", fromClause.getRightChild()));
+                // logger.warn(String.format("right child %s", fromClause.getRightChild()));
 
                 // don't pass down stuff on right
                 JoinComponent jc2 = makeJoinPlan(fromClause.getRightChild(), null);
 
 
-                logger.warn("made JOIN plans");
+                // logger.warn("made JOIN plans");
 
                 HashSet<Expression> rightleft = new HashSet<>();
                 PredicateUtils.findExprsUsingSchemas(conjuncts, false, rightleft,
                         fromClause.getRightChild().getSchema(), fromClause.getLeftChild().getSchema());
 
-                logger.warn(String.format("got rightleft %s", rightleft));
+                // logger.warn(String.format("got rightleft %s", rightleft));
                 rightleft.removeAll(right);
                 rightleft.removeAll(left);
 
                 Expression pred = PredicateUtils.makePredicate(rightleft);
 
-                logger.warn(String.format("got preddd %s", rightleft));
-                logger.warn(String.format("On expr pred %s", fromClause.getOnExpression()));
-
-//                HashSet<PlanNode> comps = new HashSet<PlanNode>();
-//                comps.add(jc1.joinPlan);
-//                comps.add(jc2.joinPlan);
+                // logger.warn(String.format("got preddd %s", rightleft));
+                // logger.warn(String.format("On expr pred %s", fromClause.getOnExpression()));
 
                 // join on the predicate if it corresponds to left and right
                 // join = new JoinComponent(leafPlan, comps, rightleft);
 
                 join = new NestedLoopJoinNode(jc1.joinPlan, jc2.joinPlan, fromClause.getJoinType(), fromClause.getOnExpression());
-                logger.warn(String.format("Join %s", join));
+                // logger.warn(String.format("Join %s", join));
 
 
             }
@@ -584,117 +576,116 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
                 PredicateUtils.findExprsUsingSchemas(conjuncts, false, left,
                         fromClause.getLeftChild().getSchema());
 
-                logger.warn(String.format("got left %s", left));
+                // logger.warn(String.format("got left %s", left));
 
                 HashSet<Expression> right = new HashSet<>();
                 PredicateUtils.findExprsUsingSchemas(conjuncts, false, right,
                         fromClause.getRightChild().getSchema());
 
-                logger.warn(String.format("left child %s", fromClause.getLeftChild()));
+                // logger.warn(String.format("left child %s", fromClause.getLeftChild()));
 
                 // don't pass down stuff on left
                 JoinComponent jc1 = makeJoinPlan(fromClause.getLeftChild(), null);
 
 
-                logger.warn(String.format("right child %s", fromClause.getRightChild()));
+                // logger.warn(String.format("right child %s", fromClause.getRightChild()));
 
                 // pass down stuff on right
                 JoinComponent jc2 = makeJoinPlan(fromClause.getRightChild(), right);
 
 
-                logger.warn("made JOIN plans");
+                // logger.warn("made JOIN plans");
 
                 HashSet<Expression> rightleft = new HashSet<>();
                 PredicateUtils.findExprsUsingSchemas(conjuncts, false, rightleft,
                         fromClause.getRightChild().getSchema(), fromClause.getLeftChild().getSchema());
 
-                logger.warn(String.format("got rightleft %s", rightleft));
+                // logger.warn(String.format("got rightleft %s", rightleft));
                 rightleft.removeAll(right);
                 rightleft.removeAll(left);
 
                 // use remaining expression for predicate
                 Expression pred = PredicateUtils.makePredicate(rightleft);
 
-                logger.warn(String.format("got preddd %s", rightleft));
-                logger.warn(String.format("On expr pred %s", fromClause.getOnExpression()));
+                // logger.warn(String.format("got preddd %s", rightleft));
+                // logger.warn(String.format("On expr pred %s", fromClause.getOnExpression()));
 
 
                 join = new NestedLoopJoinNode(jc1.joinPlan, jc2.joinPlan, fromClause.getJoinType(), fromClause.getOnExpression());
-                logger.warn(String.format("Join %s", join));
+                // logger.warn(String.format("Join %s", join));
 
             }
 
             leafPlan = join;
-            logger.warn("after rename\n\n\n");
-
 
         }
-        else
-        {
-            // otherwise inner/cross join
-            PlanNode join = null;
 
-            // logger.warn("cross JOIN\n\n\n");
+        // For some reason I thought this method could be called with inner and
+        // cross joins. It can't. Thus we don't need the following code.
+        // I left it
+//        else
+//        {
+//            // otherwise inner/cross join
+//            PlanNode join = null;
+//
+//            // logger.warn("cross JOIN\n\n\n");
+//
+//            HashSet<Expression> left = new HashSet<>();
+//            PredicateUtils.findExprsUsingSchemas(conjuncts, false, left,
+//                    fromClause.getLeftChild().getSchema());
+//
+//            HashSet<Expression> right = new HashSet<>();
+//            PredicateUtils.findExprsUsingSchemas(conjuncts, false, right,
+//                    fromClause.getRightChild().getSchema());
+//
+//            // pass down corresponding expressions to both sides
+//            JoinComponent jc1 = makeJoinPlan(fromClause.getLeftChild(), left);
+//            JoinComponent jc2 = makeJoinPlan(fromClause.getRightChild(), right);
+//
+//            HashSet<Expression> rightleft = new HashSet<>();
+//            PredicateUtils.findExprsUsingSchemas(conjuncts, false, rightleft,
+//                    fromClause.getRightChild().getSchema(), fromClause.getLeftChild().getSchema());
+//
+//            rightleft.removeAll(right);
+//            rightleft.removeAll(left);
+//
+//            // use remaining expression for predicate
+//            Expression pred = PredicateUtils.makePredicate(rightleft);
+//
+//            // join the left and right components
+//            join = new NestedLoopJoinNode(jc1.joinPlan, jc2.joinPlan, fromClause.getJoinType(), pred);
+//
+//
+//            leafPlan = join;
+//
+////            if(fromClause.getResultName() != null) {
+////                leafPlan = new RenameNode(join, fromClause.getResultName());
+////            }
+////            else
+////            {
+////                leafPlan = join;
+////            }
+//        }
 
-            HashSet<Expression> left = new HashSet<>();
-            PredicateUtils.findExprsUsingSchemas(conjuncts, false, left,
-                    fromClause.getLeftChild().getSchema());
-
-            HashSet<Expression> right = new HashSet<>();
-            PredicateUtils.findExprsUsingSchemas(conjuncts, false, right,
-                    fromClause.getRightChild().getSchema());
-
-            // pass down corresponding expressions to both sides
-            JoinComponent jc1 = makeJoinPlan(fromClause.getLeftChild(), left);
-            JoinComponent jc2 = makeJoinPlan(fromClause.getRightChild(), right);
-
-            HashSet<Expression> rightleft = new HashSet<>();
-            PredicateUtils.findExprsUsingSchemas(conjuncts, false, rightleft,
-                    fromClause.getRightChild().getSchema(), fromClause.getLeftChild().getSchema());
-
-            rightleft.removeAll(right);
-            rightleft.removeAll(left);
-
-            // use remaining expression for predicate
-            Expression pred = PredicateUtils.makePredicate(rightleft);
-
-            // join the left and right components
-            join = new NestedLoopJoinNode(jc1.joinPlan, jc2.joinPlan, fromClause.getJoinType(), pred);
-
-
-            leafPlan = join;
-
-//            if(fromClause.getResultName() != null) {
-//                leafPlan = new RenameNode(join, fromClause.getResultName());
-//            }
-//            else
-//            {
-//                leafPlan = join;
-//            }
-        }
-
-        logger.warn("before prepare");
         leafPlan.prepare();
-        logger.warn("after prepare");
 
-        logger.warn(String.format("before pred, schema = %s", leafPlan.getSchema().toString()));
+        // logger.warn(String.format("before pred, schema = %s", leafPlan.getSchema().toString()));
 
         HashSet<Expression> used = new HashSet<>();
         PredicateUtils.findExprsUsingSchemas(conjuncts, false, used,
                 leafPlan.getSchema());
 
-        logger.warn(String.format("asdfsd", conjuncts.toString()));
+        // logger.warn(String.format("asdfsd", conjuncts.toString()));
         Expression pred = PredicateUtils.makePredicate(used);
 
         if(pred != null) {
-            logger.warn(String.format("got pred, %s", pred.toString()));
+            // logger.warn(String.format("got pred, %s", pred.toString()));
 
             PlanUtils.addPredicateToPlan(leafPlan, pred);
-
+            leafPlan.prepare();
 
         }
-        leafPlan.prepare();
-        logger.warn(String.format("added to plan %s", leafPlan.toString()));
+        // logger.warn(String.format("added to plan %s", leafPlan.toString()));
 
         return leafPlan;
     }
@@ -754,58 +745,54 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
                 // Iterate over the leaf plans.
                 for (JoinComponent leaf : leafComponents){
                     // If leaf already appears in plan n, continue.
-                    logger.warn(String.format("plan %s", plan.joinPlan.getSchema()));
-                    logger.warn(String.format("leaf %s", leaf.joinPlan.getSchema()));
-
-                    logger.warn(String.format("true false: %s", leaf.leavesUsed.contains(plan.joinPlan)));
+                    // logger.warn(String.format("plan %s", plan.joinPlan.getSchema()));
+                    // logger.warn(String.format("leaf %s", leaf.joinPlan.getSchema()));
 
                     if (plan.leavesUsed.contains(leaf.joinPlan) || plan.joinPlan.equals(leaf.joinPlan)){
                         continue;
                     }
 
-                    logger.warn(String.format("plan %s", plan.leavesUsed));
-                    logger.warn(String.format("leaf %s", leaf.joinPlan));
+                    // logger.warn(String.format("plan %s", plan.leavesUsed));
+                    // logger.warn(String.format("leaf %s", leaf.joinPlan));
 
                     // Instantiate a new join plan that joins together plan n and leaf.
                     // First compute the sub-plan conjuncts by set unions of plan and leaf child conjuncts.
                     HashSet<Expression> leftConjuncts = plan.conjunctsUsed;
                     HashSet<Expression> rightConjuncts = leaf.conjunctsUsed;
-                    logger.warn(String.format("got conjuncts"));
+                    // logger.warn(String.format("got conjuncts"));
 
                     HashSet<Expression> subplanConjuncts = new HashSet<Expression>(leftConjuncts);
                     subplanConjuncts.addAll(rightConjuncts);
 
-                    logger.warn(String.format("got sugb conjuncts"));
+                    // logger.warn(String.format("got sugb conjuncts"));
                     // Second, compute the unused conjuncts by set difference of all conjuncts and sub-plan conjuncts.
                     HashSet<Expression> unusedConjuncts = new HashSet<Expression>(conjuncts);
                     unusedConjuncts.removeAll(subplanConjuncts);
 
-                    logger.warn(String.format("removed"));
+                    // logger.warn(String.format("removed"));
 
                     // Third, determine which of those conjuncts should be applied to the theta join.
                     HashSet<Expression> finalConjuncts = new HashSet<Expression>();
 
-                    logger.warn(String.format("getting conjuncts to use %s", unusedConjuncts));
+                    // logger.warn(String.format("getting conjuncts to use %s", unusedConjuncts));
                     PredicateUtils.findExprsUsingSchemas(unusedConjuncts,
                             false, finalConjuncts, plan.joinPlan.getSchema(), leaf.joinPlan.getSchema());
 
-                    logger.warn(String.format("found exprs"));
+                    // logger.warn(String.format("found exprs"));
 
-                    logger.warn(String.format("final conjuncts are %s", finalConjuncts));
+                    // logger.warn(String.format("final conjuncts are %s", finalConjuncts));
 
                     // Fourth, create a new predicate using the final conjuncts.
                     Expression newPredicate = PredicateUtils.makePredicate(finalConjuncts);
 
-                    logger.warn(String.format("made pred %s", newPredicate));
+                    // logger.warn(String.format("made pred %s", newPredicate));
 
                     // Fifth, create a nested loop join node to hold the new join and new predicate.
-                    logger.warn(String.format("nested loop join leaf %s", leaf.joinPlan.toString()));
-                    logger.warn(String.format("nested loop join plan %s", plan.joinPlan.toString()));
+                    // logger.warn(String.format("nested loop join leaf %s", leaf.joinPlan.toString()));
+                    // logger.warn(String.format("nested loop join plan %s", plan.joinPlan.toString()));
 
                     PlanNode newPlans = new NestedLoopJoinNode(plan.joinPlan, leaf.joinPlan, JoinType.INNER, newPredicate);
                     newPlans.prepare();
-                    logger.warn("nested loop join node done");
-                    // logger.warn("nested loop join node done");
 
                     // Compute the cost of the new plan.
                     float newCost = newPlans.getCost().cpuCost;
@@ -817,8 +804,8 @@ public class CostBasedJoinPlanner extends AbstractPlannerImpl {
                     JoinComponent newPlanComponent = new JoinComponent(newPlans,
                             combinedLeaves, finalConjuncts);
 
-                    logger.warn(String.format("\n\n\nnew plan %s", newPlanComponent.conjunctsUsed   ));
-                    logger.warn(String.format("new cost %f", newCost));
+                    // logger.warn(String.format("\n\n\nnew plan %s", newPlanComponent.conjunctsUsed   ));
+                    // logger.warn(String.format("new cost %f", newCost));
 
 
                     // If nextJoinPlans already contains a plan with all leaves in nextJoinPlans,
