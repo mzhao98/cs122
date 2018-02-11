@@ -73,23 +73,23 @@ public class TestSimpleJoins extends SqlTestCase {
      *
      * @throws Exception if any query parsing or execution issues occur.
      */
-    public void testInnerJoinM1() throws Throwable {
-        TupleLiteral[] expected = {
-                new TupleLiteral(1, 2, 3, 2, 3, 1),
-                new TupleLiteral(1, 2, 3, 3, 4, 2),
-                new TupleLiteral(1, 2, 3, 3, 3, 3),
-                new TupleLiteral(2, 2, 3, 2, 3, 1),
-                new TupleLiteral(2, 2, 3, 3, 4, 2),
-                new TupleLiteral(2, 2, 3, 3, 3, 3),
-                new TupleLiteral(2, 3, 1, 2, 3, 1),
-                new TupleLiteral(2, 3, 1, 3, 4, 2),
-                new TupleLiteral(2, 3, 1, 3, 3, 3)
-        };
-
-        CommandResult result = server.doCommand(
-                "SELECT * FROM test_simple_joins_a JOIN test_simple_joins_b", true);
-        assert checkUnorderedResults(expected, result);
-    }
+//    public void testInnerJoinM1() throws Throwable {
+//        TupleLiteral[] expected = {
+//                new TupleLiteral(1, 2, 3, 2, 3, 1),
+//                new TupleLiteral(1, 2, 3, 3, 4, 2),
+//                new TupleLiteral(1, 2, 3, 3, 3, 3),
+//                new TupleLiteral(2, 2, 3, 2, 3, 1),
+//                new TupleLiteral(2, 2, 3, 3, 4, 2),
+//                new TupleLiteral(2, 2, 3, 3, 3, 3),
+//                new TupleLiteral(2, 3, 1, 2, 3, 1),
+//                new TupleLiteral(2, 3, 1, 3, 4, 2),
+//                new TupleLiteral(2, 3, 1, 3, 3, 3)
+//        };
+//
+//        CommandResult result = server.doCommand(
+//                "SELECT * FROM test_simple_joins_a JOIN test_simple_joins_b", true);
+//        assert checkUnorderedResults(expected, result);
+//    }
 
     /**
      * This test performs a simple <tt>JOIN</tt> statement where the table on
