@@ -4,6 +4,7 @@ package edu.caltech.nanodb.storage.btreefile;
 import java.io.IOException;
 import java.util.List;
 
+import edu.caltech.nanodb.expressions.CompareOperator;
 import org.apache.log4j.Logger;
 
 import edu.caltech.nanodb.expressions.TupleComparator;
@@ -760,16 +761,54 @@ public class LeafPageOperations {
         DBPage newDBPage = fileOps.getNewDataPage();
         LeafPage newLeaf = LeafPage.init(newDBPage, tupleFile.getSchema());
 
-        /* TODO:  IMPLEMENT THE REST OF THIS METHOD.
-         *
-         * The LeafPage class provides some helpful operations for moving leaf-
+        /* The LeafPage class provides some helpful operations for moving leaf-
          * entries to a left or right sibling.
          *
          * The parent page must also be updated.  If the leaf node doesn't have
          * a parent, the tree's depth will increase by one level.
          */
-        logger.error("NOT YET IMPLEMENTED:  splitLeafAndAddKey()");
-        return null;
+
+        newLeaf.setNextPageNo(leaf.getNextPageNo());
+        leaf.setNextPageNo(newLeaf.getPageNo());
+
+        leaf.moveTuplesRight(newLeaf, leaf.getNumTuples() / 2);
+
+        // now insert the tuple to the right position
+        BTreeFilePageTuple t = addTupleToLeafPair(leaf, newLeaf, tuple);
+
+        // now add leaves to parent
+        // if we are a root
+        if(pagePath.size() == 1)
+        {
+            DBPage newPage = fileOps.getNewDataPage();
+            InnerPage root = InnerPage.init(newPage, tupleFile.getSchema(), leaf.getPageNo(), tuple, newLeaf.getPageNo());
+            // innerPageOps.loadPage(root.getPageNo());
+
+            DBPage dbpHeader = storageManager.loadDBPage(tupleFile.getDBFile(), 0);
+
+            // HeaderPage.getRootPageNo(dbpHeader);
+            // logger.warn(String.format("setting root %d ", HeaderPage.getRootPageNo(dbpHeader)));
+            HeaderPage.setRootPageNo(dbpHeader, root.getPageNo());
+            // logger.warn(String.format("set root %d ", HeaderPage.getRootPageNo(dbpHeader)));
+
+            // logger.warn("SET root\n\n\n");
+
+            // HeaderPage.setFirstLeafPageNo(dbpHeader, leaf.getPageNo());
+
+            // innerPageOps.loadPage(root.getPageNo());
+            // pagePath.add(0, newPage.getPageNo());
+        }
+        else
+        {
+            // get the root, which is one above our leaf
+            int index = pagePath.get(pathSize - 2);
+            pagePath.remove(pathSize - 1);
+            innerPageOps.addTuple(innerPageOps.loadPage(index), pagePath,
+                    leaf.getPageNo(), tuple, newLeaf.getPageNo());
+
+        }
+
+        return t;
     }
 
 
