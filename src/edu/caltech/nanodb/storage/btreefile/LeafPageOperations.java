@@ -768,9 +768,11 @@ public class LeafPageOperations {
          * a parent, the tree's depth will increase by one level.
          */
 
+        // set the pointer of leaves
         newLeaf.setNextPageNo(leaf.getNextPageNo());
         leaf.setNextPageNo(newLeaf.getPageNo());
 
+        // transfer tuples to the right leaf
         leaf.moveTuplesRight(newLeaf, leaf.getNumTuples() / 2);
 
         // now insert the tuple to the right position
@@ -780,29 +782,23 @@ public class LeafPageOperations {
         // if we are a root
         if(pathSize == 1)
         {
+            // create a new page
             DBPage newPage = fileOps.getNewDataPage();
-            InnerPage root = InnerPage.init(newPage, tupleFile.getSchema(), leaf.getPageNo(), newLeaf.getTuple(0), newLeaf.getPageNo());
+            InnerPage root = InnerPage.init(newPage, tupleFile.getSchema(),
+                    leaf.getPageNo(), newLeaf.getTuple(0), newLeaf.getPageNo());
 
+            // set the header page to the new root
             DBPage dbpHeader = storageManager.loadDBPage(tupleFile.getDBFile(), 0);
             HeaderPage.setRootPageNo(dbpHeader, root.getPageNo());
-            // HeaderPage.getRootPageNo(dbpHeader);
-            // logger.warn(String.format("setting root %d ", HeaderPage.getRootPageNo(dbpHeader)));
-            // logger.warn(String.format("set root %d ", HeaderPage.getRootPageNo(dbpHeader)));
-
-            // logger.warn("SET root\n\n\n");
-
-            // HeaderPage.setFirstLeafPageNo(dbpHeader, leaf.getPageNo());
-
-            // innerPageOps.loadPage(root.getPageNo());
-            // pagePath.add(0, newPage.getPageNo());
         }
         else
         {
-            // get the root, which is one above our leaf
+            // get the parent, which is one above our leaf
             int index = pagePath.get(pathSize - 2);
             pagePath.remove(pathSize - 1);
             //InnerPage parent = innerPageOps.loadPage(index);
 
+            // add the tuple to the parent
             innerPageOps.addTuple(innerPageOps.loadPage(index), pagePath,
                     leaf.getPageNo(), newLeaf.getTuple(0), newLeaf.getPageNo());
 
