@@ -778,17 +778,15 @@ public class LeafPageOperations {
 
         // now add leaves to parent
         // if we are a root
-        if(pagePath.size() == 1)
+        if(pathSize == 1)
         {
             DBPage newPage = fileOps.getNewDataPage();
             InnerPage root = InnerPage.init(newPage, tupleFile.getSchema(), leaf.getPageNo(), tuple, newLeaf.getPageNo());
-            // innerPageOps.loadPage(root.getPageNo());
 
             DBPage dbpHeader = storageManager.loadDBPage(tupleFile.getDBFile(), 0);
-
+            HeaderPage.setRootPageNo(dbpHeader, root.getPageNo());
             // HeaderPage.getRootPageNo(dbpHeader);
             // logger.warn(String.format("setting root %d ", HeaderPage.getRootPageNo(dbpHeader)));
-            HeaderPage.setRootPageNo(dbpHeader, root.getPageNo());
             // logger.warn(String.format("set root %d ", HeaderPage.getRootPageNo(dbpHeader)));
 
             // logger.warn("SET root\n\n\n");

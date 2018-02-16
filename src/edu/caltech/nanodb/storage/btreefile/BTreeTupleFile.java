@@ -492,12 +492,12 @@ public class BTreeTupleFile implements SequentialTupleFile {
          * It's always a good idea to code defensively:  if you see an invalid
          * page-type, flag it with an IOException, as done earlier.
          */
-        //logger.error("NOT YET IMPLEMENTED:  navigateToLeafPage()");
+        // logger.error("NOT YET IMPLEMENTED:  navigateToLeafPage()");
 
         while(dbPage.readByte(0) == BTREE_INNER_PAGE){
             InnerPage nonLeaf = new InnerPage(dbPage, schema);
             int numPointers = nonLeaf.getNumPointers();
-            int i = 1;
+            int i = 0;
 
             while(i < numPointers) {
 
@@ -506,25 +506,35 @@ public class BTreeTupleFile implements SequentialTupleFile {
                 // If V < K_i
                 if (comparison < 0) {
                     int pointer = nonLeaf.getPointer(i);
-                    pagePath.add(pointer);
+                    if(pagePath != null)
+                    {
+                        pagePath.add(pointer);
+                    }
                     dbPage = storageManager.loadDBPage(dbFile, pointer);
                     break;
                 }
                 // Else if V = K_i
                 else if (comparison == 0) {
                     int pointer = nonLeaf.getPointer(i + 1);
-                    pagePath.add(pointer);
+                    if(pagePath != null)
+                    {
+                        pagePath.add(pointer);
+                    }
                     dbPage = storageManager.loadDBPage(dbFile, pointer);
                     break;
                 }
-                // Else if i+1 < m
-                else if (i + 1 < numPointers) {
+                // Else if i+2 < m
+                else if (i + 2 < numPointers) {
                     i++;
                     continue;
                 }
                 else {
-                    int pointer = nonLeaf.getPointer(numPointers);
-                    pagePath.add(pointer);
+                    int pointer = nonLeaf.getPointer(numPointers - 1);
+                    // logger.warn(String.format("is it null pointer?", pointer));
+                    if(pagePath != null)
+                    {
+                        pagePath.add(pointer);
+                    }
                     dbPage = storageManager.loadDBPage(dbFile, pointer);
                     break;
                 }
@@ -532,7 +542,6 @@ public class BTreeTupleFile implements SequentialTupleFile {
 
         }
         LeafPage leaf = new LeafPage(dbPage, schema);
-
         return leaf;
     }
 
