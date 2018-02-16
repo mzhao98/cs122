@@ -732,9 +732,25 @@ public class InnerPage implements DataPage {
          * Your implementation also needs to properly handle the incoming
          * parent-key, and produce a new parent-key as well.
          */
-        logger.error("NOT YET IMPLEMENTED:  movePointersLeft()");
+        //logger.error("NOT YET IMPLEMENTED:  movePointersLeft()");
 
 
+
+        InnerPage innerPage = new InnerPage(dbPage, schema);
+        DBPage leftPage = leftSibling.getDBPage();
+        int leftSiblingOffset = leftSibling.endOffset;
+
+        //int newParentPointer = innerPage.getPointer(count - 1);
+        //getKey
+        TupleLiteral newParent = new TupleLiteral(keys[count - 1]);
+
+
+        PageTuple.storeTuple(leftPage, leftSiblingOffset, schema, parentKey);
+
+        leftPage.write(leftSiblingOffset + parentKeyLen, dbPage.getPageData(), OFFSET_FIRST_POINTER,
+                pointerOffsets[count - 1] - OFFSET_FIRST_POINTER);
+
+        dbPage.moveDataRange(pointerOffsets[count-1], innerPage.OFFSET_FIRST_POINTER, innerPage.endOffset - pointerOffsets[count-1]);
 
 
 
@@ -743,7 +759,7 @@ public class InnerPage implements DataPage {
         loadPageContents();
         leftSibling.loadPageContents();
 
-        return null;
+        return newParent;
     }
 
 
@@ -952,7 +968,35 @@ public class InnerPage implements DataPage {
          * Your implementation also needs to properly handle the incoming
          * parent-key, and produce a new parent-key as well.
          */
-        logger.error("NOT YET IMPLEMENTED:  movePointersRight()");
+        //logger.error("NOT YET IMPLEMENTED:  movePointersRight()");
+
+        InnerPage innerPage = new InnerPage(dbPage, schema);
+        DBPage rightPage = rightSibling.getDBPage();
+        int rightEndOffset = rightSibling.endOffset;
+
+
+        int amountLeftToRight = innerPage.endOffset - innerPage.pointerOffsets[innerPage.getNumPointers() - count + 1];
+
+        // SAVE NEW PARENT
+        //int newParentPointer = innerPage.getPointer(innerPage.getNumPointers() - (count - 1));
+        TupleLiteral newParent = new TupleLiteral(keys[innerPage.getNumPointers() - count - 1]);
+
+        // SHIFT RIGHT SIDE DATA
+        int addSpaceToRight = amountLeftToRight + parentKeyLen;
+
+        rightPage.moveDataRange(OFFSET_FIRST_POINTER, addSpaceToRight,
+                rightSibling.endOffset - rightSibling.OFFSET_FIRST_POINTER);
+
+
+        // MOVE ROOT LABEL TO RIGHT
+        PageTuple.storeTuple(rightPage, amountLeftToRight, schema, parentKey);
+
+
+        // MOVE LEFT DATA TO RIGHT SIBLING
+        //moveDataRange(int srcPosition, int dstPosition, int length)
+        int startShiftLeftToRight = innerPage.pointerOffsets[innerPage.getNumPointers() - count + 1];
+        rightPage.moveDataRange(innerPage.pointerOffsets[startShiftLeftToRight],rightSibling.OFFSET_FIRST_POINTER, amountLeftToRight);
+
 
         // Update the cached info for both non-leaf pages.
         loadPageContents();
