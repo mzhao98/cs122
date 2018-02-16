@@ -722,39 +722,29 @@ public class InnerPage implements DataPage {
             }
         }
 
-        /* TODO:  IMPLEMENT THE REST OF THIS METHOD.
-         *
-         * You can use PageTuple.storeTuple() to write a key into a DBPage.
-         *
-         * The DBPage.write() method is useful for copying a large chunk of
-         * data from one DBPage to another.
-         *
-         * Your implementation also needs to properly handle the incoming
-         * parent-key, and produce a new parent-key as well.
-         */
-        //logger.error("NOT YET IMPLEMENTED:  movePointersLeft()");
-
-
 
         InnerPage innerPage = new InnerPage(dbPage, schema);
         DBPage leftPage = leftSibling.getDBPage();
         int leftSiblingOffset = leftSibling.endOffset;
 
-        //int newParentPointer = innerPage.getPointer(count - 1);
-        //getKey
+
         TupleLiteral newParent = new TupleLiteral(keys[count - 1]);
 
+        // Move parent to left
+        if (parentKeyLen != 0) {
+            PageTuple.storeTuple(leftPage, leftSiblingOffset, schema, parentKey);
+        }
 
-        PageTuple.storeTuple(leftPage, leftSiblingOffset, schema, parentKey);
-
+        // Move right info to left sibling
         leftPage.write(leftSiblingOffset + parentKeyLen, dbPage.getPageData(), OFFSET_FIRST_POINTER,
                 pointerOffsets[count - 1] - OFFSET_FIRST_POINTER);
 
+        // Shift right data down.
         dbPage.moveDataRange(pointerOffsets[count-1], innerPage.OFFSET_FIRST_POINTER, innerPage.endOffset - pointerOffsets[count-1]);
 
         // Update Page Pointers number
-        numPointers = dbPage.readUnsignedShort(OFFSET_NUM_POINTERS - count);
-        leftSibling.numPointers = leftPage.readUnsignedShort(OFFSET_NUM_POINTERS + count);
+        dbPage.writeShort(OFFSET_NUM_POINTERS, numPointers - count);
+        leftPage.writeShort(leftSibling.OFFSET_NUM_POINTERS, leftSibling.numPointers + count - 1);
 
         // Update the cached info for both non-leaf pages.
         loadPageContents();
@@ -959,17 +949,6 @@ public class InnerPage implements DataPage {
             }
         }
 
-        /* TODO:  IMPLEMENT THE REST OF THIS METHOD.
-         *
-         * You can use PageTuple.storeTuple() to write a key into a DBPage.
-         *
-         * The DBPage.write() method is useful for copying a large chunk of
-         * data from one DBPage to another.
-         *
-         * Your implementation also needs to properly handle the incoming
-         * parent-key, and produce a new parent-key as well.
-         */
-        //logger.error("NOT YET IMPLEMENTED:  movePointersRight()");
 
         InnerPage innerPage = new InnerPage(dbPage, schema);
         DBPage rightPage = rightSibling.getDBPage();
@@ -990,18 +969,21 @@ public class InnerPage implements DataPage {
 
 
         // MOVE ROOT LABEL TO RIGHT
-        PageTuple.storeTuple(rightPage, amountLeftToRight, schema, parentKey);
+        if (parentKeyLen != 0) {
+            PageTuple.storeTuple(rightPage, amountLeftToRight, schema, parentKey);
+        }
+
 
 
         // MOVE LEFT DATA TO RIGHT SIBLING
         //moveDataRange(int srcPosition, int dstPosition, int length)
         int startShiftLeftToRight = innerPage.pointerOffsets[innerPage.getNumPointers() - count + 1];
-        rightPage.moveDataRange(innerPage.pointerOffsets[startShiftLeftToRight],rightSibling.OFFSET_FIRST_POINTER, amountLeftToRight);
+        rightPage.moveDataRange(startShiftLeftToRight,rightSibling.OFFSET_FIRST_POINTER, amountLeftToRight);
 
 
         // Update Page Pointers number
-        numPointers = dbPage.readUnsignedShort(OFFSET_NUM_POINTERS - count);
-        rightSibling.numPointers = rightPage.readUnsignedShort(OFFSET_NUM_POINTERS + count);
+        dbPage.writeShort(OFFSET_NUM_POINTERS, numPointers - count);
+        rightPage.writeShort(rightSibling.OFFSET_NUM_POINTERS, rightSibling.numPointers + count - 1);
 
         // Update the cached info for both non-leaf pages.
         loadPageContents();

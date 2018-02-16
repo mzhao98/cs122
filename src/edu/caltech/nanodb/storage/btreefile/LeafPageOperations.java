@@ -801,6 +801,8 @@ public class LeafPageOperations {
             // get the root, which is one above our leaf
             int index = pagePath.get(pathSize - 2);
             pagePath.remove(pathSize - 1);
+            //InnerPage parent = innerPageOps.loadPage(index);
+
             innerPageOps.addTuple(innerPageOps.loadPage(index), pagePath,
                     leaf.getPageNo(), newLeaf.getTuple(0), newLeaf.getPageNo());
 
