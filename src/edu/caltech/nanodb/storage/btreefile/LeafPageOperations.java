@@ -781,7 +781,7 @@ public class LeafPageOperations {
         if(pathSize == 1)
         {
             DBPage newPage = fileOps.getNewDataPage();
-            InnerPage root = InnerPage.init(newPage, tupleFile.getSchema(), leaf.getPageNo(), tuple, newLeaf.getPageNo());
+            InnerPage root = InnerPage.init(newPage, tupleFile.getSchema(), leaf.getPageNo(), newLeaf.getTuple(0), newLeaf.getPageNo());
 
             DBPage dbpHeader = storageManager.loadDBPage(tupleFile.getDBFile(), 0);
             HeaderPage.setRootPageNo(dbpHeader, root.getPageNo());
@@ -802,7 +802,7 @@ public class LeafPageOperations {
             int index = pagePath.get(pathSize - 2);
             pagePath.remove(pathSize - 1);
             innerPageOps.addTuple(innerPageOps.loadPage(index), pagePath,
-                    leaf.getPageNo(), tuple, newLeaf.getPageNo());
+                    leaf.getPageNo(), newLeaf.getTuple(0), newLeaf.getPageNo());
 
         }
 

@@ -752,8 +752,9 @@ public class InnerPage implements DataPage {
 
         dbPage.moveDataRange(pointerOffsets[count-1], innerPage.OFFSET_FIRST_POINTER, innerPage.endOffset - pointerOffsets[count-1]);
 
-
-
+        // Update Page Pointers number
+        numPointers = dbPage.readUnsignedShort(OFFSET_NUM_POINTERS - count);
+        leftSibling.numPointers = leftPage.readUnsignedShort(OFFSET_NUM_POINTERS + count);
 
         // Update the cached info for both non-leaf pages.
         loadPageContents();
@@ -997,6 +998,10 @@ public class InnerPage implements DataPage {
         int startShiftLeftToRight = innerPage.pointerOffsets[innerPage.getNumPointers() - count + 1];
         rightPage.moveDataRange(innerPage.pointerOffsets[startShiftLeftToRight],rightSibling.OFFSET_FIRST_POINTER, amountLeftToRight);
 
+
+        // Update Page Pointers number
+        numPointers = dbPage.readUnsignedShort(OFFSET_NUM_POINTERS - count);
+        rightSibling.numPointers = rightPage.readUnsignedShort(OFFSET_NUM_POINTERS + count);
 
         // Update the cached info for both non-leaf pages.
         loadPageContents();
