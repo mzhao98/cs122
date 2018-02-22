@@ -449,6 +449,12 @@ public class TransactionManager implements BufferManagerObserver {
      *         going to be broken.
      */
     public void forceWAL(LogSequenceNumber lsn) throws IOException {
+
+        int lastPosition = lsn.getFileOffset() + lsn.getRecordSize();
+        LogSequenceNumber nextLsn = WALManager.computeNextLSN(lsn.getLogFileNo(), lastPosition);
+
+        
+
         // TODO:  IMPLEMENT
         //
         // Note that the "next LSN" value must be determined from both the
