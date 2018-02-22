@@ -448,7 +448,7 @@ public class HeapTupleFile implements TupleFile {
 
         // Iterate through the pages of the table
         int pageNo = 1;
-        DBPage dbPage;
+        DBPage dbPage = null;
         while (true) {
             // Try to load the page without creating a new one.
             try {

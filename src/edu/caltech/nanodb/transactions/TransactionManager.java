@@ -3,6 +3,7 @@ package edu.caltech.nanodb.transactions;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.Buffer;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -432,6 +433,24 @@ public class TransactionManager implements BufferManagerObserver {
         //
         // Finally, you can use the forceWAL(LogSequenceNumber) function to
         // force the WAL to be written out to the specified LSN.
+
+        for (int i = 0; i < pages.size(); i++){
+            DBPage currentPage = pages.get(i);
+            LogSequenceNumber currentLSN = currentPage.getPageLSN();
+
+
+
+            DBFileType currentType = currentPage.getDBFile().getType();
+            if(currentType == DBFileType.WRITE_AHEAD_LOG_FILE || currentType == DBFileType.TXNSTATE_FILE){
+                continue;
+            }
+
+            if(currentLSN == null){
+                throw new IOException("Page should have LSN, but doesn't.");
+            }
+
+            forceWAL(currentLSN);
+        }
     }
 
 
@@ -450,10 +469,46 @@ public class TransactionManager implements BufferManagerObserver {
      */
     public void forceWAL(LogSequenceNumber lsn) throws IOException {
 
+        BufferManager bufferManager = storageManager.getBufferManager();
+
+        if (lsn.compareTo(txnStateNextLSN) < 0) {
+            return;
+        }
+
+        int start = txnStateNextLSN.getLogFileNo();
+        int end = lsn.getLogFileNo();
+
+        int iter = start;
+
+        while (iter <= end) {
+            DBFile dbFile = bufferManager.getFile(WALManager.getWALFileName(iter));
+
+            if (dbFile == null) {
+                iter++;
+                continue;
+            }
+
+            int firstPage = 0;
+            int lastPage = Integer.MAX_VALUE;
+
+            if (iter == start) {
+                firstPage = txnStateNextLSN.getFileOffset() / dbFile.getPageSize();
+            }
+
+            if (iter == end) {
+                lastPage = lsn.getFileOffset() / dbFile.getPageSize();
+            }
+
+            bufferManager.writeDBFile(dbFile, firstPage, lastPage, true);
+            iter++;
+        }
+
         int lastPosition = lsn.getFileOffset() + lsn.getRecordSize();
         LogSequenceNumber nextLsn = WALManager.computeNextLSN(lsn.getLogFileNo(), lastPosition);
 
-        
+        txnStateNextLSN = nextLsn;
+
+        storeTxnStateToFile();
 
         // TODO:  IMPLEMENT
         //
