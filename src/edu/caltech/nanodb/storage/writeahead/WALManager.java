@@ -1067,12 +1067,12 @@ public class WALManager {
         // it back.
         
         while (true) {
-            System.out.println(lsn);
+            logger.debug(lsn);
             DBFileReader walReader = getWALFileReader(lsn);
 
             WALRecordType type = WALRecordType.valueOf(walReader.readByte());
-            System.out.println(String.format("Type: " + type));
-            System.out.println(String.format("Initial place: %d", walReader.getPosition()));
+            logger.debug(String.format("Type: " + type));
+            logger.debug(String.format("Initial place: %d", walReader.getPosition()));
 
             int recordTxnID = walReader.readInt();
             if (recordTxnID != transactionID) {
@@ -1095,33 +1095,28 @@ public class WALManager {
                     "during rollback of transaction %d.", recordTxnID, lsn,
                         transactionID));
             }
-            // walReader.setPosition(5);
             int logFileNo = walReader.readUnsignedShort();
-            System.out.println(String.format("logFileNo = %d, Pos: %d", logFileNo, walReader.getPosition()));
+            logger.debug(String.format("logFileNo = %d, Pos: %d", logFileNo, walReader.getPosition()));
             int offset = walReader.readInt();
-            System.out.println(String.format("offset = %d, Pos: %d", offset, walReader.getPosition()));
+            logger.debug(String.format("offset = %d, Pos: %d", offset, walReader.getPosition()));
 
             String name = walReader.readVarString255();
-            System.out.println(String.format("Name length: %d, Pos: %d", (name.length()+1), walReader.getPosition()));
+            logger.debug(String.format("Name length: %d, Pos: %d", (name.length()+1), walReader.getPosition()));
             int pageNo = walReader.readUnsignedShort();
-            System.out.println(String.format("pageNo = %d, Pos: %d", pageNo, walReader.getPosition()));
+            logger.debug(String.format("pageNo = %d, Pos: %d", pageNo, walReader.getPosition()));
 
             int numSegments = walReader.readUnsignedShort();
-            System.out.println(String.format("numSegments = %d, Pos: %d", numSegments, walReader.getPosition()));
+            logger.debug(String.format("numSegments = %d, Pos: %d", numSegments, walReader.getPosition()));
 
 
             DBPage dbPage = storageManager.loadDBPage(storageManager.openDBFile(name),pageNo);
-//            DBPage dbPage = storageManager.loadDBPage(walReader.getDBFile(),
-//                    lsn.getFileOffset()/walReader.getDBFile().getPageSize());
 
             byte[] redoData = applyUndoAndGenRedoOnlyData(walReader,dbPage,numSegments);
             writeRedoOnlyUpdatePageRecord(dbPage,numSegments,redoData);
 
             lsn = new LogSequenceNumber(logFileNo, offset);
-            System.out.println(String.format("lsn = " + lsn + " , Pos: %d", walReader.getPosition()));
+            logger.debug(String.format("lsn = " + lsn + " , Pos: %d", walReader.getPosition()));
 
-            System.out.println();
-            System.out.println();
 
             // TODO:  IMPLEMENT THE REST
             //
@@ -1132,9 +1127,6 @@ public class WALManager {
             //        WALFileException to indicate the problem immediately.
             //
             // TODO:  SET lsn TO PREVIOUS LSN TO WALK BACKWARD THROUGH WAL.
-
-            // TODO:  This break is just here so the code will compile; when
-            //        you provide your own implementation, get rid of it!
         }
 
         // All done rolling back the transaction!  Record that it was aborted
