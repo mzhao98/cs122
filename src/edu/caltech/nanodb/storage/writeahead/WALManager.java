@@ -282,6 +282,72 @@ public class WALManager {
             //                    " during redo processing!");
             //            }
 
+
+            logger.warn(String.format("Type: " + type));
+            logger.warn(String.format("Initial place: %d", walReader.getPosition()));
+            logger.warn("redo!!!");
+
+            switch(type)
+            {
+                // look at how many bytes to read
+            case START_TXN:
+                // add ti to incompletes
+                recoveryInfo.incompleteTxns.put(transactionID, currLSN);
+                break;
+
+            case UPDATE_PAGE:
+            case UPDATE_PAGE_REDO_ONLY:
+                // before this loop, we are at a position of 5 bytes, and now
+                // we are starting at the prevlsn value for these 2
+
+                // read 6 bytes to get to the filename and page number
+                int logFileNo = walReader.readUnsignedShort();
+                // logger.debug(String.format("logFileNo = %d, Pos: %d", logFileNo, walReader.getPosition()));
+                int offset = walReader.readInt();
+
+                // may want to do this instead of above
+
+                // walReader.movePosition(6);
+                String name = walReader.readVarString255();
+
+                // now get the page number
+                int pageNo = walReader.readUnsignedShort();
+
+                // now we can load the dbpage
+                DBPage dbPage = storageManager.loadDBPage(storageManager.openDBFile(name),pageNo);
+
+                int numSegments = walReader.readUnsignedShort();
+                // finally we need to get the number of segments
+
+                // now we can apply the redo, as we are in the right position
+                // and have all the required info
+                applyRedo(type, walReader, dbPage, numSegments);
+
+                // also need to read the int at the end to advance our
+                // walmanager to the correct spot
+                walReader.readInt();
+
+                // no need to update recovery info, as nothing incomplete
+                break;
+
+            case COMMIT_TXN:
+            case ABORT_TXN:
+                // also remove ti from incompletes
+                recoveryInfo.recordTxnCompleted(transactionID);
+                walReader.readUnsignedShort();
+                walReader.readInt();
+                break;
+
+            default:
+                throw new WALFileException(
+                    "Encountered unrecognized WAL record type " +
+                    type + " at LSN " + currLSN +
+                    " during redo processing!");
+            }
+
+            // finally, read the byte at the end of the transaction
+            walReader.readByte();
+
             oldLSN = currLSN;
             currLSN = computeNextLSN(currLSN.getLogFileNo(), walReader.getPosition());
         }
@@ -447,6 +513,59 @@ public class WALManager {
             //                    type + " at LSN " + currLSN +
             //                    " during undo processing!");
             //            }
+
+            logger.warn("undo!!!");
+            switch(type)
+            {
+                // look at how many bytes to read
+                case START_TXN:
+                    // write the abort txn and record it as completed
+                    writeTxnRecord(WALRecordType.ABORT_TXN);
+                    recoveryInfo.recordTxnCompleted(transactionID);
+                    break;
+
+                case UPDATE_PAGE:
+                    // read 6 bytes to get to the filename and page number
+                    int prev = walReader.readUnsignedShort();
+                    // logger.debug(String.format("logFileNo = %d, Pos: %d", logFileNo, walReader.getPosition()));
+                    int offset = walReader.readInt();
+
+                    // may want to do this instead of above
+
+                    // walReader.movePosition(6);
+                    String name = walReader.readVarString255();
+
+                    // now get the page number
+                    int pageNo = walReader.readUnsignedShort();
+
+                    // now we can load the dbpage
+                    DBPage dbPage = storageManager.loadDBPage(storageManager.openDBFile(name),pageNo);
+
+                    // finally we need to get the number of segments
+                    int numSegments = walReader.readUnsignedShort();
+
+                    // also need to read the int at the end to advance our
+                    // walmanager to the correct spot
+                    byte[] redoData = applyUndoAndGenRedoOnlyData(walReader, dbPage, numSegments);
+                    writeRedoOnlyUpdatePageRecord(dbPage, numSegments, redoData);
+
+                    break;
+
+                // for these do we go to the end of the sequence and break
+                case UPDATE_PAGE_REDO_ONLY:
+                case COMMIT_TXN:
+                case ABORT_TXN:
+                    break;
+
+                default:
+                    throw new WALFileException(
+                            "Encountered unrecognized WAL record type " +
+                                    type + " at LSN " + currLSN +
+                                    " during redo processing!");
+            }
+
+            // finally, do we read the byte at the end of the transaction?
+            // walReader.readByte();
 
             oldLSN = currLSN;
         }
@@ -1085,6 +1204,8 @@ public class WALManager {
                 "Undoing WAL record at %s.  Type = %s, TxnID = %d",
                 lsn, type, transactionID));
 
+
+            // loop until we get back to the start
             if (type == WALRecordType.START_TXN) {
                 break;
             }
@@ -1095,22 +1216,29 @@ public class WALManager {
                     "during rollback of transaction %d.", recordTxnID, lsn,
                         transactionID));
             }
+            // unsigned short 2 bytes
             int logFileNo = walReader.readUnsignedShort();
             logger.debug(String.format("logFileNo = %d, Pos: %d", logFileNo, walReader.getPosition()));
+            // 4 bytes-  prev lsn 6 bytes
             int offset = walReader.readInt();
             logger.debug(String.format("offset = %d, Pos: %d", offset, walReader.getPosition()));
 
+            // reads the name up to 255 bytes
             String name = walReader.readVarString255();
             logger.debug(String.format("Name length: %d, Pos: %d", (name.length()+1), walReader.getPosition()));
             int pageNo = walReader.readUnsignedShort();
             logger.debug(String.format("pageNo = %d, Pos: %d", pageNo, walReader.getPosition()));
 
+            // read the 2 segments of the beginning
+            // 2B - number of segments Ns (unsigned short)
             int numSegments = walReader.readUnsignedShort();
             logger.debug(String.format("numSegments = %d, Pos: %d", numSegments, walReader.getPosition()));
 
-
+            // open dbpage
             DBPage dbPage = storageManager.loadDBPage(storageManager.openDBFile(name),pageNo);
 
+            // start after the segments and get the number of bytes
+            // adds to writeahead log
             byte[] redoData = applyUndoAndGenRedoOnlyData(walReader,dbPage,numSegments);
             writeRedoOnlyUpdatePageRecord(dbPage,numSegments,redoData);
 
