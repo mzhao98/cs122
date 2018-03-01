@@ -508,7 +508,6 @@ public class HeapTupleFile implements TupleFile {
         TableStats tableStats = new TableStats(numDataPages, numTuples, avgTupleSize, columnStats);
         this.stats = tableStats;
         heapFileManager.saveMetadata(this);
-        storageManager.logDBPageWrite(dbPage);
     }
 
 
