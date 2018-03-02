@@ -200,13 +200,11 @@ public class WALManager {
         nextLSN = storedNextLSN;
         RecoveryInfo recoveryInfo = new RecoveryInfo(firstLSN, nextLSN);
 
-        logger.warn("before if");
 
         if (firstLSN.equals(nextLSN)) {
             // No recovery necessary!  Just return the passed-in info.
             return recoveryInfo;
         }
-        logger.warn("after if");
 
         performRedo(recoveryInfo);
         performUndo(recoveryInfo);
@@ -549,6 +547,7 @@ public class WALManager {
                     byte[] redoData = applyUndoAndGenRedoOnlyData(walReader, dbPage, numSegments);
                     writeRedoOnlyUpdatePageRecord(transactionID,
                             recoveryInfo.getLastLSN(transactionID), dbPage, numSegments, redoData);
+                    // Set LSN of page being redo'd to current LSN?
                     break;
 
                 // for these do we go to the end of the sequence and break

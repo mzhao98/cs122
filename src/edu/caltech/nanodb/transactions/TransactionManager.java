@@ -446,7 +446,8 @@ public class TransactionManager implements BufferManagerObserver {
             }
 
             if(currentLSN == null){
-                throw new IOException("Page should have LSN, but doesn't.");
+                logger.warn(String.format("Page should have LSN, but doesn't."));
+                continue;
             }
 
             forceWAL(currentLSN);
