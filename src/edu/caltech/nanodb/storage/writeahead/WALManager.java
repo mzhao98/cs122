@@ -259,36 +259,13 @@ public class WALManager {
                 "Redo:  examining WAL record at %s.  Type = %s, TxnID = %d",
                 currLSN, type, transactionID));
 
-            //        Use logging statements liberally to help verify and
-            //        debug your work.
-            //
-            //        If you encounter invalid WAL contents, throw a
-            //        WALFileException to indicate the problem immediately.
-            //
-            //        You can use Java enums in a switch statement, like this:
-            //
-            //            switch (type) {
-            //            case START_TXN:
-            //                ...
-            //
-            //            case COMMIT_TXN:
-            //                ...
-            //
-            //            default:
-            //                throw new WALFileException(
-            //                    "Encountered unrecognized WAL record type " +
-            //                    type + " at LSN " + currLSN +
-            //                    " during redo processing!");
-            //            }
 
-
-            logger.warn(String.format("Type: " + type));
-            logger.warn(String.format("Initial place: %d", walReader.getPosition()));
-            logger.warn("redo!!!");
+            // logger.warn(String.format("Type: " + type));
+            // logger.warn(String.format("Initial place: %d", walReader.getPosition()));
+            // logger.warn("redo!!!");
 
             switch(type)
             {
-                // look at how many bytes to read
             case START_TXN:
                 // add ti to incompletes
                 recoveryInfo.updateInfo(transactionID, currLSN);
@@ -301,12 +278,9 @@ public class WALManager {
 
                 // read 6 bytes to get to the filename and page number
                 int logFileNo = walReader.readUnsignedShort();
-                // logger.debug(String.format("logFileNo = %d, Pos: %d", logFileNo, walReader.getPosition()));
                 int offset = walReader.readInt();
 
-                // may want to do this instead of above
-
-                // walReader.movePosition(6);
+                // now read forward to get the name
                 String name = walReader.readVarString255();
 
                 // now get the page number
@@ -315,8 +289,8 @@ public class WALManager {
                 // now we can load the dbpage
                 DBPage dbPage = storageManager.loadDBPage(storageManager.openDBFile(name),pageNo);
 
-                int numSegments = walReader.readUnsignedShort();
                 // finally we need to get the number of segments
+                int numSegments = walReader.readUnsignedShort();
 
                 // now we can apply the redo, as we are in the right position
                 // and have all the required info
@@ -331,8 +305,10 @@ public class WALManager {
 
             case COMMIT_TXN:
             case ABORT_TXN:
-                // also remove ti from incompletes
+                // remove ti from incomplete
                 recoveryInfo.recordTxnCompleted(transactionID);
+
+                // now read till the end
                 walReader.readUnsignedShort();
                 walReader.readInt();
                 break;
@@ -489,30 +465,7 @@ public class WALManager {
                 "Undo:  examining WAL record at %s.  Type = %s, TxnID = %d",
                 currLSN, type, transactionID));
 
-            //
-            //        Use logging statements liberally to help verify and
-            //        debug your work.
-            //
-            //        If you encounter invalid WAL contents, throw a
-            //        WALFileException to indicate the problem immediately.
-            //
-            //        You can use Java enums in a switch statement, like this:
-            //
-            //            switch (type) {
-            //            case START_TXN:
-            //                ...
-            //
-            //            case COMMIT_TXN:
-            //                ...
-            //
-            //            default:
-            //                throw new WALFileException(
-            //                    "Encountered unrecognized WAL record type " +
-            //                    type + " at LSN " + currLSN +
-            //                    " during undo processing!");
-            //            }
-
-            logger.warn("undo!!!");
+            // logger.warn("undo!!!");
             switch(type)
             {
                 // look at how many bytes to read
@@ -528,9 +481,8 @@ public class WALManager {
                     // logger.debug(String.format("logFileNo = %d, Pos: %d", logFileNo, walReader.getPosition()));
                     int offset = walReader.readInt();
 
-                    // may want to do this instead of above
 
-                    // walReader.movePosition(6);
+                    // read the name
                     String name = walReader.readVarString255();
 
                     // now get the page number
