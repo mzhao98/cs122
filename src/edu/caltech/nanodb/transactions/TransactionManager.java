@@ -410,36 +410,11 @@ public class TransactionManager implements BufferManagerObserver {
      */
     @Override
     public void beforeWriteDirtyPages(List<DBPage> pages) throws IOException {
-        // TODO:  IMPLEMENT
-        //
-        // This implementation must enforce the write-ahead logging rule (aka
-        // the WAL rule) by ensuring that the write-ahead log reflects all
-        // changes to all of the specified pages, on disk, before any of these
-        // pages may be written to disk.
-        //
-        // Recall that DBPages have a pageLSN field that is set to the LSN
-        // of the last WAL record describing a change to the page.  This value
-        // is not always set; it will be null if the page is part of a data
-        // file whose type is not logged.  (It may also be null if there is a
-        // bug in the write-ahead logging code.  It would be wise to report a
-        // warning, or throw an exception, if a page doesn't have a LSN when
-        // it ought to.)
-        //
-        // Some file types are not recorded to the write-ahead log; these
-        // pages should be ignored when determining how to update the WAL.
-        // You can find a page's file-type by doing something like this:
-        // dbPage.getDBFile().getType().  If it is WRITE_AHEAD_LOG_FILE or
-        // TXNSTATE_FILE then you should ignore the page.
-        //
-        // Finally, you can use the forceWAL(LogSequenceNumber) function to
-        // force the WAL to be written out to the specified LSN.
 
         for (int i = 0; i < pages.size(); i++){
             DBPage currentPage = pages.get(i);
             LogSequenceNumber currentLSN = currentPage.getPageLSN();
-
-
-
+            
             DBFileType currentType = currentPage.getDBFile().getType();
             if(currentType == DBFileType.WRITE_AHEAD_LOG_FILE || currentType == DBFileType.TXNSTATE_FILE){
                 continue;
@@ -472,6 +447,7 @@ public class TransactionManager implements BufferManagerObserver {
 
         BufferManager bufferManager = storageManager.getBufferManager();
 
+        // If the argument LSN comes before the nextLSN this is a no-op
         if (lsn.compareTo(txnStateNextLSN) < 0) {
             return;
         }
@@ -481,6 +457,8 @@ public class TransactionManager implements BufferManagerObserver {
 
         int iter = start;
 
+        // Iterate through all of the files starting with the nextLSN's file
+        // up to and including the file of the argument LSN
         while (iter <= end) {
             DBFile dbFile = bufferManager.getFile(WALManager.getWALFileName(iter));
 
@@ -489,13 +467,20 @@ public class TransactionManager implements BufferManagerObserver {
                 continue;
             }
 
+            // Set the first and last page defaults which will change if the file
+            // corresponds to either the nextLSN or the argument LSN but otherwise
+            // should just write the entire file
             int firstPage = 0;
             int lastPage = Integer.MAX_VALUE;
 
+            // If we are on the file corresponding to the nextLSN then set the first
+            // page to the page of the nextLSN
             if (iter == start) {
                 firstPage = txnStateNextLSN.getFileOffset() / dbFile.getPageSize();
             }
 
+            // If we are on the file corresponding to the argument LSN then set
+            // the last page to the page of the argument LSN
             if (iter == end) {
                 lastPage = lsn.getFileOffset() / dbFile.getPageSize();
             }
@@ -504,6 +489,8 @@ public class TransactionManager implements BufferManagerObserver {
             iter++;
         }
 
+        // Compute the next LSN based on the current LSN and the corresponding record
+        // size to preserve all the log records in the WAL file
         int lastPosition = lsn.getFileOffset() + lsn.getRecordSize();
         LogSequenceNumber nextLsn = WALManager.computeNextLSN(lsn.getLogFileNo(), lastPosition);
 
@@ -511,14 +498,6 @@ public class TransactionManager implements BufferManagerObserver {
 
         storeTxnStateToFile();
 
-        // TODO:  IMPLEMENT
-        //
-        // Note that the "next LSN" value must be determined from both the
-        // current LSN *and* its record size; otherwise we lose the last log
-        // record in the WAL file.  You can use this static method:
-        //
-        // int lastPosition = lsn.getFileOffset() + lsn.getRecordSize();
-        // WALManager.computeNextLSN(lsn.getLogFileNo(), lastPosition);
     }
 
 
