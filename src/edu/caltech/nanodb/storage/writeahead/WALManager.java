@@ -291,7 +291,7 @@ public class WALManager {
                 // look at how many bytes to read
             case START_TXN:
                 // add ti to incompletes
-                recoveryInfo.incompleteTxns.put(transactionID, currLSN);
+                recoveryInfo.updateInfo(transactionID, currLSN);
                 break;
 
             case UPDATE_PAGE:
@@ -1244,16 +1244,6 @@ public class WALManager {
             lsn = new LogSequenceNumber(logFileNo, offset);
             logger.debug(String.format("lsn = " + lsn + " , Pos: %d", walReader.getPosition()));
 
-
-            // TODO:  IMPLEMENT THE REST
-            //
-            //        Use logging statements liberally to help verify and
-            //        debug your work.
-            //
-            //        If you encounter invalid WAL contents, throw a
-            //        WALFileException to indicate the problem immediately.
-            //
-            // TODO:  SET lsn TO PREVIOUS LSN TO WALK BACKWARD THROUGH WAL.
         }
 
         // All done rolling back the transaction!  Record that it was aborted
