@@ -195,15 +195,18 @@ public class WALManager {
      */
     public RecoveryInfo doRecovery(LogSequenceNumber storedFirstLSN,
         LogSequenceNumber storedNextLSN) throws IOException {
-
+        logger.warn("doing recovery");
         firstLSN = storedFirstLSN;
         nextLSN = storedNextLSN;
         RecoveryInfo recoveryInfo = new RecoveryInfo(firstLSN, nextLSN);
+
+        logger.warn("before if");
 
         if (firstLSN.equals(nextLSN)) {
             // No recovery necessary!  Just return the passed-in info.
             return recoveryInfo;
         }
+        logger.warn("after if");
 
         performRedo(recoveryInfo);
         performUndo(recoveryInfo);
@@ -258,8 +261,6 @@ public class WALManager {
                 "Redo:  examining WAL record at %s.  Type = %s, TxnID = %d",
                 currLSN, type, transactionID));
 
-            // TODO:  IMPLEMENT THE REST
-            //
             //        Use logging statements liberally to help verify and
             //        debug your work.
             //
@@ -490,7 +491,6 @@ public class WALManager {
                 "Undo:  examining WAL record at %s.  Type = %s, TxnID = %d",
                 currLSN, type, transactionID));
 
-            // TODO:  IMPLEMENT THE REST
             //
             //        Use logging statements liberally to help verify and
             //        debug your work.
@@ -520,7 +520,7 @@ public class WALManager {
                 // look at how many bytes to read
                 case START_TXN:
                     // write the abort txn and record it as completed
-                    writeTxnRecord(WALRecordType.ABORT_TXN);
+                    writeTxnRecord(WALRecordType.ABORT_TXN, transactionID, recoveryInfo.getLastLSN(transactionID));
                     recoveryInfo.recordTxnCompleted(transactionID);
                     break;
 
@@ -547,8 +547,8 @@ public class WALManager {
                     // also need to read the int at the end to advance our
                     // walmanager to the correct spot
                     byte[] redoData = applyUndoAndGenRedoOnlyData(walReader, dbPage, numSegments);
-                    writeRedoOnlyUpdatePageRecord(dbPage, numSegments, redoData);
-
+                    writeRedoOnlyUpdatePageRecord(transactionID,
+                            recoveryInfo.getLastLSN(transactionID), dbPage, numSegments, redoData);
                     break;
 
                 // for these do we go to the end of the sequence and break

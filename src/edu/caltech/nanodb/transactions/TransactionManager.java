@@ -471,7 +471,7 @@ public class TransactionManager implements BufferManagerObserver {
 
         BufferManager bufferManager = storageManager.getBufferManager();
 
-        if (lsn.compareTo(txnStateNextLSN) > 0) {
+        if (lsn.compareTo(txnStateNextLSN) < 0) {
             return;
         }
 
