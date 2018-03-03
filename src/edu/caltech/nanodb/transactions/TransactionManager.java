@@ -424,11 +424,14 @@ public class TransactionManager implements BufferManagerObserver {
                 continue;
             }
 
+            // Throw a warning if the current LSN is null, as all of the dirty pages should
+            // have a LSN if they are in the list to be written.
             if(currentLSN == null){
                 logger.warn(String.format("Page should have LSN, but doesn't."));
                 continue;
             }
 
+            // Call forceWAL to force the write-ahead log out to the currentLSN.
             forceWAL(currentLSN);
         }
     }
