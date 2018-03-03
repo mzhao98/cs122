@@ -448,6 +448,12 @@ public class TransactionManager implements BufferManagerObserver {
      *         going to be broken.
      */
     public void forceWAL(LogSequenceNumber lsn) throws IOException {
+//      This implementation of forceWAL is atomic because the transaction state
+//      file is written at the end of the method, therefore in the case of
+//      a crash the data is reverted to pre-method values. The implementation
+//      is durable because of the atomic sync at the end of the method,
+//      which ensures that the data gets synced to the disk so in the case
+//      of a crash post-method completion the changes persist on the disk.
 
         BufferManager bufferManager = storageManager.getBufferManager();
 
