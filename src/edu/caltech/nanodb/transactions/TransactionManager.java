@@ -411,12 +411,16 @@ public class TransactionManager implements BufferManagerObserver {
     @Override
     public void beforeWriteDirtyPages(List<DBPage> pages) throws IOException {
 
+        // Iterate through the argument list, ignoring WRITE_AHEAD_LOG_FILEs
+        // and TXNSTATE_FILEs as pages in these file types will not have LSNs
         for (int i = 0; i < pages.size(); i++){
             DBPage currentPage = pages.get(i);
             LogSequenceNumber currentLSN = currentPage.getPageLSN();
-            
+
             DBFileType currentType = currentPage.getDBFile().getType();
-            if(currentType == DBFileType.WRITE_AHEAD_LOG_FILE || currentType == DBFileType.TXNSTATE_FILE){
+
+            if(currentType == DBFileType.WRITE_AHEAD_LOG_FILE ||
+                    currentType == DBFileType.TXNSTATE_FILE){
                 continue;
             }
 
